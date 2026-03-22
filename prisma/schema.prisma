@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Organization {
+  id            String               @id @default(uuid())
+  name          String
+  themeColor    String               @default("#E8719F")
+  accentColor   String               @default("#D4956A")
+  closingDay    Int                  @default(10)
+  createdAt     DateTime             @default(now())
+  duties        DutyMaster[]
+  schedules     Schedule[]
+  settings      SettingMaster[]
+  specialLeaves SpecialLeaveMaster[]
+  staff         Staff[]
+}
+
+model DutyMaster {
+  id        String       @id @default(uuid())
+  orgId     String
+  name      String
+  startTime String
+  endTime   String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  org       Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, name])
+}
+
+model Staff {
+  id                    String                 @id @default(uuid())
+  orgId                 String
+  employeeNo            String
+  loginId               String?                @unique
+  name                  String
+  email                 String?
+  passwordHash          String
+  employmentType        String                 @default("REGULAR")
+  role                  String                 @default("STAFF")
+  defaultStart          String                 @default("08:30")
+  defaultEnd            String                 @default("17:30")
+  standardWorkHours     Float                  @default(8)
+  weeklyWorkDays        Int                    @default(5)
+  weeklyWorkHours       Float                  @default(40)
+  childcareLeaveStart   String?
+  childcareLeaveEnd     String?
+  isActive              Boolean                @default(true)
+  joinDate              String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  expectedReturnDate    String?
+  maternityLeaveStart   String?
+  maternityLeaveEnd     String?
+  jobTitle              String?
+  assignedClass         String?
+  attendances           Attendance[]
+  leaveBalances         LeaveBalance[]
+  leaveOfAbsenceRecords LeaveOfAbsenceRecord[]
+  leaveRequests         LeaveRequest[]
+  specialBalances       SpecialLeaveBalance[]
+  org                   Organization           @relation(fields: [orgId], references: [id])
+}
+
+model Attendance {
+  id               String   @id @default(uuid())
+  staffId          String
+  workDate         String
+  clockIn          String?
+  clockOut         String?
+  actualWorkHours  Float    @default(0)
+  breakHours       Float    @default(0)
+  overtimeHours    Float    @default(0)
+  shortTimeValue   Float    @default(0)
+  mealCount        Int      @default(0)
+  overtimeReason   String?
+  overtimeMemo     String?
+  hourlyLeave      Float    @default(0)
+  dayType          String   @default("WORK")
+  specialLeaveNote String?
+  status           String   @default("CLOCKED_IN")
+  modifiedBy       String?
+  memo             String?
+  isLate           Boolean  @default(false)
+  isEarlyLeave     Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  dutyType         String?
+  staff            Staff    @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, workDate])
+}
+
+model LeaveRequest {
+  id             String         @id @default(uuid())
+  staffId        String
+  leaveDate      String
+  leaveType      String
+  leaveHours     Float?
+  leaveStartTime String?
+  leaveEndTime   String?
+  halfDayPeriod  String?
+  reason         String?
+  sickDayNumber  Int?
+  status         String         @default("PENDING")
+  gcalEventId    String?
+  createdAt      DateTime       @default(now())
+  approval       LeaveApproval?
+  staff          Staff          @relation(fields: [staffId], references: [id])
+}
+
+model LeaveApproval {
+  id         String       @id @default(uuid())
+  requestId  String       @unique
+  approvedBy String
+  action     String
+  comment    String?
+  actionedAt DateTime     @default(now())
+  request    LeaveRequest @relation(fields: [requestId], references: [id])
+}
+
+model LeaveBalance {
+  id                 String   @id @default(uuid())
+  staffId            String
+  fiscalYear         Int
+  grantedDays        Float    @default(0)
+  carriedOverDays    Float    @default(0)
+  totalDays          Float    @default(0)
+  usedDays           Float    @default(0)
+  remainingDays      Float    @default(0)
+  timeLeaveUsedHours Float    @default(0)
+  mandatoryTakeDays  Float    @default(0)
+  updatedAt          DateTime @updatedAt
+  staff              Staff    @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, fiscalYear])
+}
+
+model SettingMaster {
+  id          String       @id @default(uuid())
+  orgId       String
+  key         String
+  value       String
+  description String?
+  updatedAt   DateTime     @updatedAt
+  org         Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, key])
+}
+
+model SpecialLeaveMaster {
+  id          String       @id @default(uuid())
+  orgId       String
+  name        String
+  defaultDays Int?
+  isPaid      Boolean      @default(true)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  org         Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, name])
+}
+
+model SpecialLeaveBalance {
+  id         String   @id @default(uuid())
+  staffId    String
+  fiscalYear Int
+  leaveType  String
+  totalDays  Float    @default(5)
+  usedDays   Float    @default(0)
+  updatedAt  DateTime @updatedAt
+  staff      Staff    @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, fiscalYear, leaveType])
+}
+
+model Schedule {
+  id             String       @id @default(uuid())
+  orgId          String
+  date           String
+  title          String
+  startTime      String?
+  endTime        String?
+  isWorkOverride Boolean      @default(false)
+  targetType     String       @default("ALL")
+  targetValue    String?
+  type           String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  org            Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, date])
+}
+
+model LeaveOfAbsenceRecord {
+  id                  String   @id @default(uuid())
+  staffId             String
+  maternityLeaveStart String?
+  childcareLeaveStart String?
+  expectedReturnDate  String?
+  actualReturnDate    String?
+  memo                String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  maternityLeaveEnd   String?
+  staff               Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+}

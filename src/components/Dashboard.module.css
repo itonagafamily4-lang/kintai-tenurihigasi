@@ -1,0 +1,289 @@
+.container {
+    min-height: 100vh;
+    padding-bottom: 80px;
+    background: var(--bg-primary);
+}
+
+/* ヘッダー */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-card);
+    border-bottom: var(--border-light);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: var(--shadow-sm);
+}
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.logo {
+    font-size: 1.5rem;
+}
+
+.appName {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-primary-dark);
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.userInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.userName {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.userType {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    background: var(--color-primary-bg);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
+.logoutBtn {
+    padding: var(--space-xs) var(--space-md);
+    background: transparent;
+    border: 1px solid rgba(232, 93, 93, 0.3);
+    border-radius: var(--radius-sm);
+    color: var(--color-danger);
+    font-family: var(--font-family);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.logoutBtn:hover {
+    background: var(--color-danger-bg);
+}
+
+/* メインエリア */
+.main {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: var(--space-lg);
+}
+
+/* 日時表示 */
+.dateTimeArea {
+    text-align: center;
+    margin-bottom: var(--space-xl);
+}
+
+.dateText {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.timeText {
+    font-size: var(--font-size-4xl);
+    font-weight: 700;
+    color: var(--color-primary-dark);
+    letter-spacing: 2px;
+}
+
+/* 打刻ボタン */
+.clockButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.clockBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-xl) var(--space-lg);
+    border: none;
+    border-radius: var(--radius-xl);
+    font-family: var(--font-family);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    min-height: 120px;
+}
+
+.clockBtn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.clockBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.clockInBtn {
+    background: linear-gradient(135deg, #E8719F 0%, #F2A3BD 100%);
+    color: white;
+    box-shadow: 0 8px 32px rgba(232, 113, 159, 0.35);
+}
+
+.clockInBtn:hover:not(:disabled) {
+    box-shadow: 0 12px 40px rgba(232, 113, 159, 0.45);
+    transform: translateY(-2px);
+}
+
+.clockOutBtn {
+    background: linear-gradient(135deg, #D4956A 0%, #E8B896 100%);
+    color: white;
+    box-shadow: 0 8px 32px rgba(212, 149, 106, 0.35);
+}
+
+.clockOutBtn:hover:not(:disabled) {
+    box-shadow: 0 12px 40px rgba(212, 149, 106, 0.45);
+    transform: translateY(-2px);
+}
+
+.clockBtnIcon {
+    font-size: 2rem;
+}
+
+.clockBtnText {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+}
+
+/* 出勤前入力 */
+.preClockInputs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+    padding: var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: var(--border-light);
+}
+
+/* 状況カード */
+.statusCard {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    box-shadow: var(--shadow-md);
+    border: var(--border-light);
+    margin-bottom: var(--space-lg);
+}
+
+.statusTitle {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: var(--border-light);
+}
+
+.statusGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+}
+
+.statusItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.statusLabel {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.statusValue {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* 完了カード */
+.completedCard {
+    text-align: center;
+    padding: var(--space-xl);
+    background: var(--color-success-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(93, 184, 126, 0.2);
+}
+
+.completedIcon {
+    font-size: 2rem;
+    margin-bottom: var(--space-sm);
+}
+
+.completedText {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-success);
+}
+
+.completedDetail {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-xs);
+}
+
+/* モーダル内情報 */
+.modalInfo {
+    background: var(--bg-primary);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    font-size: var(--font-size-sm);
+}
+
+.modalInfo strong {
+    color: var(--color-primary-dark);
+}
+
+/* レスポンシブ */
+@media (max-width: 480px) {
+    .header {
+        padding: var(--space-sm) var(--space-md);
+    }
+
+    .appName {
+        display: none;
+    }
+
+    .main {
+        padding: var(--space-md);
+    }
+
+    .clockBtn {
+        min-height: 100px;
+        padding: var(--space-lg) var(--space-md);
+    }
+
+    .timeText {
+        font-size: var(--font-size-3xl);
+    }
+}

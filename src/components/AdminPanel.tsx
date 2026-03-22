@@ -1,0 +1,1248 @@
+"use client";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import type { UserSession } from "@/app/page";
+import styles from "./AdminPanel.module.css";
+import AdminSpecialLeaveSettings from "./AdminSpecialLeaveSettings";
+import AdminStaffSpecialBalances from "./AdminStaffSpecialBalances";
+import AdminStaffLeaveBalance from "./AdminStaffLeaveBalance";
+import AdminStaffLeaveHistory from "./AdminStaffLeaveHistory";
+import AdminStaffAbsenceRecord from "./AdminStaffAbsenceRecord";
+import CalendarAdmin from "./CalendarAdmin";
+import AdminAnnualLeaveGrant from "./AdminAnnualLeaveGrant";
+import AdminScheduleOverride from "./AdminScheduleOverride";
+import AdminDutySettings from "./AdminDutySettings";
+
+interface StaffMember {
+    id: string;
+    employeeNo: string;
+    loginId: string;
+    name: string;
+    email: string | null;
+    joinDate: string | null;
+    employmentType: string;
+    jobTitle: string | null;
+    assignedClass: string | null;
+    role: string;
+    defaultStart: string;
+    defaultEnd: string;
+    standardWorkHours: number;
+    weeklyWorkDays: number;
+    weeklyWorkHours: number;
+    maternityLeaveStart: string | null;
+    maternityLeaveEnd: string | null;
+    childcareLeaveStart: string | null;
+    childcareLeaveEnd: string | null;
+    expectedReturnDate: string | null;
+    leaveBalances?: { remainingDays: number }[];
+}
+
+const ROLE_LABELS: Record<string, string> = {
+    ADMIN: "👑 管理者",
+    STAFF: "👤 一般",
+};
+
+interface DayRecord {
+    date: string;
+    dayOfWeek: number;
+    attendance: {
+        clockIn: string | null;
+        clockOut: string | null;
+        actualWorkHours: number;
+        overtimeHours: number;
+        overtimeReason: string | null;
+        overtimeMemo: string | null;
+        shortTimeValue: number;
+        mealCount: number;
+        hourlyLeave: number;
+        dayType: string;
+        status: string;
+        memo: string | null;
+        isLate?: boolean;
+        isEarlyLeave?: boolean;
+        dutyType?: string | null;
+    } | null;
+    leave: {
+        leaveType: string;
+        sickDayNumber: number | null;
+    } | null;
+    effectiveSchedule?: {
+        title: string;
+        startTime: string;
+        endTime: string;
+    } | null;
+}
+
+interface HistoryData {
+    period: { year: number; month: number; label: string; };
+    staff: { id: string; name: string; employeeNo: string; employmentType: string; };
+    days: DayRecord[];
+    summary?: {
+        workDays: number;
+        totalWorkHours: number;
+        totalOvertime: number;
+        totalShortTime: number;
+        publicHolidays: number;
+        paidLeave: number;
+        sickLeave: number;
+        totalHourlyLeave: number;
+        lateCount: number;
+        earlyLeaveCount: number;
+        totalMeals: number;
+    };
+    error?: string;
+}
+
+interface Props {
+    user: UserSession;
+}
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+    REGULAR: "正規",
+    PART_TIME: "パート",
+    SHORT_TIME: "時短",
+};
+
+const DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
+
+export default function AdminPanel({ user }: Props) {
+    const [staffList, setStaffList] = useState<StaffMember[]>([]);
+    const [selectedStaff, setSelectedStaff] = useState<string>("");
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [historyData, setHistoryData] = useState<HistoryData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [csvLoading, setCsvLoading] = useState(false);
+    const [excelLoading, setExcelLoading] = useState(false);
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [addLoading, setAddLoading] = useState(false);
+    const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [adminTab, setAdminTab] = useState<"attendance" | "staff" | "settings" | "calendar" | "specialHours">("attendance");
+    const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
+    const [editMode, setEditMode] = useState(false);
+    const [editStaff, setEditStaff] = useState<any>(null);
+    const [editMessage, setEditMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [editSaving, setEditSaving] = useState(false);
+    const [exportLoading, setExportLoading] = useState(false);
+    const [importLoading, setImportLoading] = useState(false);
+
+    // 一斉退勤用
+    const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+    const [showBulkClockOutModal, setShowBulkClockOutModal] = useState(false);
+    const [bulkClockOutTime, setBulkClockOutTime] = useState("");
+    const [bulkClockOutMemo, setBulkClockOutMemo] = useState("");
+    const [bulkProcessing, setBulkProcessing] = useState(false);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [newStaff, setNewStaff] = useState({
+        name: "", email: "", loginId: "", employeeNo: "",
+        employmentType: "REGULAR", jobTitle: "", assignedClass: "", role: "STAFF",
+        defaultStart: "08:30", defaultEnd: "17:30", standardWorkHours: 8.0,
+        weeklyWorkDays: 5, weeklyWorkHours: 40.0,
+        maternityLeaveStart: "", maternityLeaveEnd: "", childcareLeaveStart: "", childcareLeaveEnd: "", expectedReturnDate: "",
+        password: "",
+        joinDate: "",
+    });
+
+    useEffect(() => {
+        // 現在時刻をデフォルトにセット (HH:mm)
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        setBulkClockOutTime(`${hh}:${mm}`);
+    }, [showBulkClockOutModal]);
+
+    const fetchStaffList = useCallback(async () => {
+        try {
+            const res = await fetch("/api/admin/staff");
+            const data = await res.json();
+            const list = data.staff || [];
+            setStaffList(list);
+            // 選択中の職員がいない場合のみ、最初の職員を自動選択
+            setSelectedStaff(prev => prev || (list.length > 0 ? list[0].id : ""));
+        } catch {
+            // error
+        }
+        setLoading(false);
+    }, []); // 依存関係を空にして、職員選択ごとの再取得を防止
+
+    useEffect(() => {
+        fetchStaffList();
+    }, [fetchStaffList]);
+
+    // 選択した職員の勤怠を取得
+    const fetchHistory = useCallback(async () => {
+        if (!selectedStaff) return;
+        setHistoryLoading(true);
+        try {
+            const res = await fetch(`/api/attendance/history?year=${year}&month=${month}&staffId=${selectedStaff}`);
+            const data = await res.json();
+            setHistoryData(data);
+        } catch {
+            // error
+        }
+        setHistoryLoading(false);
+    }, [selectedStaff, year, month]);
+
+    useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+    async function handleBulkClockOut() {
+        if (selectedStaffIds.length === 0) {
+            alert("職員が選択されていません");
+            return;
+        }
+        setBulkProcessing(true);
+        try {
+            const res = await fetch("/api/admin/attendance/bulk-clock-out", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    staffIds: selectedStaffIds,
+                    clockOutTime: bulkClockOutTime,
+                    memo: bulkClockOutMemo,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const summary = data.summary;
+                alert(`一斉打刻が完了しました。\n✅ 成功: ${summary.success}名\n⏭️ スキップ: ${summary.skipped}名\n⚠️ エラー: ${summary.error}名`);
+                setShowBulkClockOutModal(false);
+                setSelectedStaffIds([]);
+                setBulkClockOutMemo("");
+                if (adminTab === "attendance" && selectedStaff) {
+                    fetchHistory();
+                }
+            } else {
+                alert(data.error || "エラーが発生しました");
+            }
+        } catch (error) {
+            alert("通信エラーが発生しました");
+        } finally {
+            setBulkProcessing(false);
+        }
+    }
+
+    function prevMonth() {
+        if (month === 1) { setYear(year - 1); setMonth(12); }
+        else setMonth(month - 1);
+    }
+
+    function nextMonth() {
+        if (month === 12) { setYear(year + 1); setMonth(1); }
+        else setMonth(month + 1);
+    }
+
+    async function downloadCSV() {
+        setCsvLoading(true);
+        try {
+            const res = await fetch(`/api/admin/csv?year=${year}&month=${month}`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `勤怠集計_${year}年${month}月分.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            alert("CSV出力に失敗しました");
+        }
+        setCsvLoading(false);
+    }
+
+    async function downloadExcel() {
+        setExcelLoading(true);
+        try {
+            const res = await fetch(`/api/admin/excel?year=${year}&month=${month}`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `勤怠集計_${year}年${month}月分.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            alert("Excel出力に失敗しました");
+        }
+        setExcelLoading(false);
+    }
+
+    const staffDetail = staffDetailId ? staffList.find(s => s.id === staffDetailId) : null;
+    const selectedStaffInfo = staffList.find((s) => s.id === selectedStaff);
+    const empType = selectedStaffInfo?.employmentType || "REGULAR";
+
+    async function handleAddStaff(e: React.FormEvent) {
+        e.preventDefault();
+        setAddLoading(true);
+        setAddMessage(null);
+        try {
+            const res = await fetch("/api/admin/staff", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...newStaff, email: newStaff.email || null }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAddMessage({ type: "success", text: data.message });
+                setNewStaff({
+                    name: "", email: "", loginId: "", employeeNo: "", employmentType: "REGULAR", jobTitle: "", assignedClass: "", role: "STAFF",
+                    defaultStart: "08:30", defaultEnd: "17:30", standardWorkHours: 8.0,
+                    weeklyWorkDays: 5, weeklyWorkHours: 40.0, maternityLeaveStart: "", maternityLeaveEnd: "", childcareLeaveStart: "", childcareLeaveEnd: "", expectedReturnDate: "",
+                    password: "", joinDate: ""
+                });
+                setShowAddForm(false);
+                await fetchStaffList();
+            } else {
+                setAddMessage({ type: "error", text: data.error });
+            }
+        } catch {
+            setAddMessage({ type: "error", text: "ネットワークエラー" });
+        }
+        setAddLoading(false);
+    }
+
+    async function handleEditStaff(e: React.FormEvent) {
+        e.preventDefault();
+        setEditSaving(true);
+        setEditMessage(null);
+        try {
+            const res = await fetch(`/api/admin/staff/${editStaff.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(editStaff),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setEditMessage({ type: "success", text: "更新しました" });
+                setEditMode(false);
+                await fetchStaffList();
+            } else {
+                setEditMessage({ type: "error", text: data.error });
+            }
+        } catch {
+            setEditMessage({ type: "error", text: "ネットワークエラー" });
+        }
+        setEditSaving(false);
+    }
+
+    async function handleExportStaff() {
+        setExportLoading(true);
+        try {
+            const res = await fetch("/api/admin/staff/export");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `職員一覧_${new Date().toISOString().split("T")[0]}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            alert("職員のエクスポートに失敗しました");
+        }
+        setExportLoading(false);
+    }
+
+    async function handleImportStaff(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImportLoading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch("/api/admin/staff/import", {
+                method: "POST",
+                body: formData,
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                await fetchStaffList();
+            } else {
+                alert(data.error);
+            }
+        } catch {
+            alert("インポート中にエラーが発生しました");
+        }
+        setImportLoading(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    }
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.header}>
+                <h2 className={styles.title}>📊 管理モード</h2>
+                <p className={styles.subtitle}>職員の勤怠を管理・確認できます</p>
+            </div>
+
+            {/* タブ切替 */}
+            <div style={{
+                display: "flex", gap: "var(--space-sm)", marginBottom: "var(--space-lg)",
+                background: "var(--bg-card)", borderRadius: "var(--radius-lg)",
+                padding: "4px", border: "var(--border-light)",
+            }}>
+                <button
+                    style={{
+                        flex: 1, padding: "var(--space-sm) var(--space-md)",
+                        borderRadius: "var(--radius-md)", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "var(--font-size-sm)",
+                        background: adminTab === "attendance" ? "var(--color-primary)" : "transparent",
+                        color: adminTab === "attendance" ? "var(--text-inverse)" : "var(--text-secondary)",
+                        transition: "all var(--transition-fast)",
+                    }}
+                    onClick={() => setAdminTab("attendance")}
+                >
+                    📅 勤怠管理
+                </button>
+                <button
+                    style={{
+                        flex: 1, padding: "var(--space-sm) var(--space-md)",
+                        borderRadius: "var(--radius-md)", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "var(--font-size-sm)",
+                        background: adminTab === "staff" ? "var(--color-primary)" : "transparent",
+                        color: adminTab === "staff" ? "var(--text-inverse)" : "var(--text-secondary)",
+                        transition: "all var(--transition-fast)",
+                    }}
+                    onClick={() => { setAdminTab("staff"); setStaffDetailId(null); }}
+                >
+                    👥 職員管理
+                </button>
+                <button
+                    style={{
+                        flex: 1, padding: "var(--space-sm) var(--space-md)",
+                        borderRadius: "var(--radius-md)", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "var(--font-size-sm)",
+                        background: adminTab === "settings" ? "var(--color-primary)" : "transparent",
+                        color: adminTab === "settings" ? "var(--text-inverse)" : "var(--text-secondary)",
+                        transition: "all var(--transition-fast)",
+                    }}
+                    onClick={() => { setAdminTab("settings"); }}
+                >
+                    ⚙️ 指定休設定
+                </button>
+                <button
+                    style={{
+                        flex: 1, padding: "var(--space-sm) var(--space-md)",
+                        borderRadius: "var(--radius-md)", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "var(--font-size-sm)",
+                        background: adminTab === "calendar" ? "var(--color-primary)" : "transparent",
+                        color: adminTab === "calendar" ? "var(--text-inverse)" : "var(--text-secondary)",
+                        transition: "all var(--transition-fast)",
+                    }}
+                    onClick={() => { setAdminTab("calendar"); }}
+                >
+                    📆 カレンダー
+                </button>
+                <button
+                    style={{
+                        flex: 1, padding: "var(--space-sm) var(--space-md)",
+                        borderRadius: "var(--radius-md)", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "var(--font-size-sm)",
+                        background: adminTab === "specialHours" ? "var(--color-primary)" : "transparent",
+                        color: adminTab === "specialHours" ? "var(--text-inverse)" : "var(--text-secondary)",
+                        transition: "all var(--transition-fast)",
+                    }}
+                    onClick={() => { setAdminTab("specialHours"); }}
+                >
+                    🌙 特別勤務
+                </button>
+            </div>
+
+            {/* ========== 勤怠管理タブ ========== */}
+            {adminTab === "attendance" && (<>
+
+                {/* コントロールバー */}
+                <div className={styles.controls}>
+                    <div className={styles.controlRow}>
+                        {/* 職員選択 */}
+                        <div className={styles.staffSelect}>
+                            <label>職員</label>
+                            <select
+                                className="select"
+                                value={selectedStaff}
+                                onChange={(e) => setSelectedStaff(e.target.value)}
+                            >
+                                {staffList.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name} ({EMPLOYMENT_LABELS[s.employmentType]})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 月ナビ */}
+                        <div className={styles.monthNav}>
+                            <button className={styles.navBtn} onClick={prevMonth}>◀</button>
+                            <span className={styles.monthLabel}>{year}年{month}月</span>
+                            <button className={styles.navBtn} onClick={nextMonth}>▶</button>
+                        </div>
+                    </div>
+
+                    {/* CSV・Excel出力ボタン */}
+                    <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                        <button
+                            className={`btn btn-secondary ${styles.csvBtn}`}
+                            onClick={downloadCSV}
+                            disabled={csvLoading || excelLoading}
+                        >
+                            {csvLoading ? "出力中..." : "📥 CSV出力"}
+                        </button>
+                        <button
+                            className={`btn btn-primary ${styles.csvBtn}`}
+                            onClick={downloadExcel}
+                            disabled={csvLoading || excelLoading}
+                            style={{ background: '#217346', borderColor: '#217346', color: '#fff' }}
+                        >
+                            {excelLoading ? "出力中..." : "📊 Excel出力"}
+                        </button>
+                    </div>
+                </div>
+
+                {historyLoading ? (
+                    <div className={styles.loadingContainer}>
+                        <div className={styles.spinner}></div>
+                        <p>読み込み中...</p>
+                    </div>
+                ) : historyData && !("error" in historyData) ? (
+                    <>
+                        {/* 集計サマリー */}
+                        {historyData.summary ? (
+                            <div className={styles.summaryRow}>
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>出勤</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.workDays}日</span>
+                                </div>
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>実労働</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.totalWorkHours.toFixed(1)}h</span>
+                                </div>
+                                {empType !== "PART_TIME" && (
+                                    <div className={styles.summaryItem}>
+                                        <span className={styles.summaryLabel}>残業</span>
+                                        <span className={styles.summaryValue} style={historyData.summary.totalOvertime > 0 ? { color: "var(--color-danger)" } : {}}>
+                                            {historyData.summary.totalOvertime.toFixed(2)}h
+                                        </span>
+                                    </div>
+                                )}
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>特休</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.publicHolidays}日</span>
+                                </div>
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>有休</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.paidLeave}日</span>
+                                </div>
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>食事</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.totalMeals}回</span>
+                                </div>
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>遅刻</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.lateCount}回</span>
+                                </div>
+                                <div className={styles.summaryItem}>
+                                    <span className={styles.summaryLabel}>早退</span>
+                                    <span className={styles.summaryValue}>{historyData.summary.earlyLeaveCount}回</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.infoBox}>集計データがありません</div>
+                        )}
+
+                        {/* テーブル */}
+                        <div className={styles.tableWrapper}>
+                            <table className={styles.table}>
+                                <thead>
+                                    <tr>
+                                        <th>日</th>
+                                        <th>曜</th>
+                                        <th>出勤</th>
+                                        <th>退勤</th>
+                                        {empType !== "PART_TIME" && <th>残業</th>}
+                                        {empType === "SHORT_TIME" && <th>時短</th>}
+                                        <th>有給h</th>
+                                        <th>食事</th>
+                                        <th>備考</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {historyData.days.map((day) => {
+                                        const isWeekend = day.dayOfWeek === 0 || day.dayOfWeek === 6;
+                                        const d = new Date(day.date);
+                                        const hasAtt = day.attendance && day.attendance.status !== "MISSING";
+                                        const memoText = day.attendance?.memo || "";
+                                        const isLateMemo = memoText.includes("遅刻");
+                                        const isEarlyMemo = memoText.includes("早退");
+                                        const isHighlighted = isLateMemo || isEarlyMemo;
+
+                                        let note = "";
+                                        if (day.attendance?.dayType === "PUBLIC_HOLIDAY") note = "特休";
+                                        if (day.attendance?.dayType === "SPECIAL_SICK") note = "感染特休";
+                                        if (day.leave?.leaveType === "FULL_DAY") note = "有休";
+                                        if (day.leave?.leaveType === "SPECIAL_SICK") note = `感染特休${day.leave.sickDayNumber || ""}`;
+
+                                        return (
+                                            <tr key={day.date}
+                                                className={isWeekend ? styles.weekendRow : ""}
+                                                style={isHighlighted ? { backgroundColor: "rgba(231, 76, 60, 0.05)" } : {}}
+                                            >
+                                                <td className={styles.tdDate}>{d.getDate()}</td>
+                                                <td className={`${day.dayOfWeek === 0 ? styles.sunday : ""} ${day.dayOfWeek === 6 ? styles.saturday : ""}`}>
+                                                    {DAY_NAMES[day.dayOfWeek]}
+                                                </td>
+                                                <td>{hasAtt ? day.attendance?.clockIn || "—" : "—"}</td>
+                                                <td>{hasAtt ? day.attendance?.clockOut || "—" : "—"}</td>
+                                                {empType !== "PART_TIME" && (
+                                                    <td className={day.attendance && day.attendance.overtimeHours > 0 ? styles.overtime : ""}>
+                                                        {hasAtt && day.attendance!.overtimeHours > 0 ? day.attendance!.overtimeHours.toFixed(2) : "—"}
+                                                    </td>
+                                                )}
+                                                {empType === "SHORT_TIME" && (
+                                                    <td>{hasAtt && day.attendance!.shortTimeValue !== 0 ? day.attendance!.shortTimeValue : "—"}</td>
+                                                )}
+                                                <td>{hasAtt && day.attendance!.hourlyLeave > 0 ? day.attendance!.hourlyLeave : "—"}</td>
+                                                <td>{hasAtt && day.attendance!.clockIn ? (day.attendance!.mealCount > 0 ? "○" : "✗") : "—"}</td>
+                                                <td className={styles.tdMemo}>
+                                                    {day.effectiveSchedule?.title && (
+                                                        <span style={{ fontSize: "0.8em", color: "var(--color-accent-dark)", background: "rgba(212, 149, 106, 0.1)", padding: "1px 4px", borderRadius: "4px", marginRight: "4px" }}>
+                                                            🚩 {day.effectiveSchedule.title}
+                                                        </span>
+                                                    )}
+                                                    {day.attendance?.dutyType && day.attendance.dutyType !== 'NONE' && (
+                                                        <span style={{ fontSize: "0.8em", color: "var(--color-primary)", background: "rgba(52, 152, 219, 0.1)", padding: "1px 4px", borderRadius: "4px", marginRight: "4px" }}>
+                                                            {day.attendance.dutyType === 'EARLY' ? '☀️ 早当' : '🌛 遅当'}
+                                                        </span>
+                                                    )}
+                                                    {note && <span className={styles.leaveTag}>{note}</span>}
+                                                    {day.attendance?.overtimeReason && (
+                                                        <span style={{ fontSize: "0.8em", color: "var(--color-danger)", marginRight: "4px" }}>
+                                                            [{day.attendance.overtimeReason}]
+                                                        </span>
+                                                    )}
+                                                    {isLateMemo && (
+                                                        <span style={{ fontSize: "0.8em", color: "var(--color-danger)", background: "rgba(231, 76, 60, 0.1)", padding: "1px 4px", borderRadius: "4px", marginRight: "4px", fontWeight: "bold" }}>
+                                                            遅刻
+                                                        </span>
+                                                    )}
+                                                    {isEarlyMemo && (
+                                                        <span style={{ fontSize: "0.8em", color: "var(--color-danger)", background: "rgba(231, 76, 60, 0.1)", padding: "1px 4px", borderRadius: "4px", marginRight: "4px", fontWeight: "bold" }}>
+                                                            早退
+                                                        </span>
+                                                    )}
+                                                    {day.attendance?.overtimeMemo && (
+                                                        <span style={{ fontSize: "0.8em", marginRight: "4px" }}>
+                                                            {day.attendance.overtimeMemo}
+                                                        </span>
+                                                    )}
+                                                    {day.attendance?.memo || ""}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 職員一覧（勤怠タブ内の選択用） */}
+                        <div className={styles.staffListSection}>
+                            <h3 className={styles.sectionTitle}>👥 職員選択</h3>
+                            <div className={styles.staffGrid}>
+                                {staffList.map((s) => (
+                                    <button
+                                        key={s.id}
+                                        className={`${styles.staffCard} ${s.id === selectedStaff ? styles.staffCardActive : ""}`}
+                                        onClick={() => setSelectedStaff(s.id)}
+                                    >
+                                        <span className={styles.staffCardName}>{s.name}</span>
+                                        <span className={styles.staffCardType}>{EMPLOYMENT_LABELS[s.employmentType]}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : null}
+            </>
+            )}
+
+            {/* ========== 職員管理タブ ========== */}
+            {adminTab === "staff" && (
+                <div>
+                    {staffDetail ? (
+                        /* 職員詳細画面 */
+                        <div key={staffDetail.id} style={{ animation: "slideUp 0.3s ease" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <button
+                                    onClick={() => { setStaffDetailId(null); setEditMode(false); setEditMessage(null); }}
+                                    style={{
+                                        background: "none", border: "none", cursor: "pointer",
+                                        color: "var(--color-primary)", fontWeight: 600,
+                                        fontSize: "var(--font-size-sm)", marginBottom: "var(--space-md)",
+                                        display: "flex", alignItems: "center", gap: "var(--space-xs)",
+                                    }}
+                                >
+                                    ◀ 職員一覧に戻る
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (editMode) { setEditMode(false); }
+                                        else {
+                                            setEditStaff({ ...staffDetail, password: "" });
+                                            setEditMode(true);
+                                        }
+                                        setEditMessage(null);
+                                    }}
+                                    style={{
+                                        background: editMode ? "var(--color-danger-light)" : "var(--color-primary-light)",
+                                        border: "none", cursor: "pointer", borderRadius: "8px",
+                                        color: editMode ? "var(--color-danger)" : "var(--color-primary-dark)",
+                                        fontWeight: 600, fontSize: "var(--font-size-sm)",
+                                        padding: "var(--space-sm) var(--space-md)",
+                                    }}
+                                >
+                                    {editMode ? "✕ 編集キャンセル" : "✏️ 基本情報を編集"}
+                                </button>
+                            </div>
+
+                            {editMessage && (
+                                <div style={{
+                                    padding: "var(--space-sm) var(--space-md)",
+                                    borderRadius: "var(--radius-md)", marginBottom: "var(--space-md)",
+                                    background: editMessage.type === "success" ? "var(--color-success-bg)" : "var(--color-danger-bg)",
+                                    color: editMessage.type === "success" ? "var(--color-success)" : "var(--color-danger)",
+                                    fontSize: "var(--font-size-sm)", fontWeight: 600,
+                                }}>{editMessage.text}</div>
+                            )}
+
+                            {editMode ? (
+                                <form onSubmit={handleEditStaff} style={{ background: "white", padding: "var(--space-lg)", borderRadius: "var(--radius-lg)", marginBottom: "var(--space-md)", boxShadow: "var(--shadow-sm)" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-md)", marginBottom: "var(--space-md)" }}>
+                                        <div className="input-group">
+                                            <label>名前 <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                                            <input className="input" value={editStaff.name} onChange={(e) => setEditStaff({ ...editStaff, name: e.target.value })} required />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>ログインID <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                                            <input className="input" value={editStaff.loginId} onChange={(e) => setEditStaff({ ...editStaff, loginId: e.target.value })} required />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>職員番号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                                            <input className="input" value={editStaff.employeeNo} onChange={(e) => setEditStaff({ ...editStaff, employeeNo: e.target.value })} required />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>メールアドレス (任意)</label>
+                                            <input className="input" type="email" value={editStaff.email || ""} onChange={(e) => setEditStaff({ ...editStaff, email: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>入社年月 (任意)</label>
+                                            <input className="input" type="month" value={editStaff.joinDate || ""} onChange={(e) => setEditStaff({ ...editStaff, joinDate: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>雇用形態</label>
+                                            <select className="select" value={editStaff.employmentType} onChange={(e) => setEditStaff({ ...editStaff, employmentType: e.target.value })}>
+                                                <option value="REGULAR">正規</option>
+                                                <option value="SHORT_TIME">時短</option>
+                                                <option value="PART_TIME">パート</option>
+                                            </select>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>役職 (任意)</label>
+                                            <input className="input" type="text" placeholder="例: 副園長、主任" value={editStaff.jobTitle || ""} onChange={(e) => setEditStaff({ ...editStaff, jobTitle: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>担当クラス (任意)</label>
+                                            <input className="input" type="text" placeholder="例: すいーとぴー組担任" value={editStaff.assignedClass || ""} onChange={(e) => setEditStaff({ ...editStaff, assignedClass: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>権限</label>
+                                            <select className="select" value={editStaff.role} onChange={(e) => setEditStaff({ ...editStaff, role: e.target.value })}>
+                                                <option value="STAFF">一般職員</option>
+                                                <option value="ADMIN">管理者</option>
+                                            </select>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>出勤時刻</label>
+                                            <input className="input" type="time" value={editStaff.defaultStart} onChange={(e) => setEditStaff({ ...editStaff, defaultStart: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>退勤時刻</label>
+                                            <input className="input" type="time" value={editStaff.defaultEnd} onChange={(e) => setEditStaff({ ...editStaff, defaultEnd: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>所定労働時間</label>
+                                            <input className="input" type="number" step="0.25" value={editStaff.standardWorkHours} onChange={(e) => {
+                                                const v = Number(e.target.value);
+                                                setEditStaff({ ...editStaff, standardWorkHours: v, weeklyWorkHours: v * editStaff.weeklyWorkDays });
+                                            }} />
+                                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                                                🕒 時間有休1日分: <strong>{Math.ceil(editStaff.standardWorkHours)}h</strong> (切上げ) <br/>
+                                                📅 年間上限: <strong>{Math.ceil(editStaff.standardWorkHours) * 5}h</strong>
+                                            </div>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>週の所定労働日数 {editStaff.employmentType === 'PART_TIME' && <span style={{ color: "var(--color-danger)" }}>*</span>}</label>
+                                            <input className="input" type="number" step="1" min="1" max="7" required={editStaff.employmentType === 'PART_TIME'} value={editStaff.weeklyWorkDays} onChange={(e) => {
+                                                const v = Number(e.target.value);
+                                                setEditStaff({ ...editStaff, weeklyWorkDays: v, weeklyWorkHours: editStaff.standardWorkHours * v });
+                                            }} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>週の所定労働時間 <span style={{fontSize:"0.8em", color:"var(--text-secondary)"}}>(有休比例付与の計算用)</span> {editStaff.employmentType === 'PART_TIME' && <span style={{ color: "var(--color-danger)" }}>*</span>}</label>
+                                            <input className="input" type="number" step="0.25" required={editStaff.employmentType === 'PART_TIME'} value={editStaff.weeklyWorkHours} onChange={(e) => setEditStaff({ ...editStaff, weeklyWorkHours: Number(e.target.value) })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>産休開始日</label>
+                                            <input className="input" type="date" value={editStaff.maternityLeaveStart || ""} onChange={(e) => setEditStaff({ ...editStaff, maternityLeaveStart: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>産休終了日</label>
+                                            <input className="input" type="date" value={editStaff.maternityLeaveEnd || ""} onChange={(e) => setEditStaff({ ...editStaff, maternityLeaveEnd: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>育休開始日</label>
+                                            <input className="input" type="date" value={editStaff.childcareLeaveStart || ""} onChange={(e) => setEditStaff({ ...editStaff, childcareLeaveStart: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>復職予定日</label>
+                                            <input className="input" type="date" value={editStaff.expectedReturnDate || ""} onChange={(e) => setEditStaff({ ...editStaff, expectedReturnDate: e.target.value })} />
+                                        </div>
+                                        <div className="input-group" style={{ gridColumn: "span 2" }}>
+                                            <label>新しいパスワード (変更する場合のみ)</label>
+                                            <input className="input" type="text" placeholder="変更しない場合は空欄" value={editStaff.password} onChange={(e) => setEditStaff({ ...editStaff, password: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    <button type="submit" className="btn btn-primary" disabled={editSaving} style={{ padding: "var(--space-sm) var(--space-lg)" }}>
+                                        {editSaving ? "保存中..." : "💾 保存"}
+                                    </button>
+                                </form>
+                            ) : (
+                                <div style={{
+                                    background: "var(--bg-card)", borderRadius: "var(--radius-lg)",
+                                    boxShadow: "var(--shadow-md)", border: "var(--border-light)",
+                                    overflow: "hidden",
+                                }}>
+                                    <div style={{
+                                        background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
+                                        padding: "var(--space-xl) var(--space-lg)",
+                                        textAlign: "center", color: "var(--text-inverse)",
+                                    }}>
+                                        <div style={{ fontSize: "3rem", marginBottom: "var(--space-sm)" }}>
+                                            {staffDetail.role === "ADMIN" ? "👑" : "👤"}
+                                        </div>
+                                        <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 700 }}>
+                                            {staffDetail.name}
+                                        </div>
+                                        <div style={{ fontSize: "var(--font-size-sm)", opacity: 0.9, marginTop: "4px" }}>
+                                            {EMPLOYMENT_LABELS[staffDetail.employmentType]} · {ROLE_LABELS[staffDetail.role]}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: "var(--space-lg)" }}>
+                                        {[
+                                            { label: "職員番号", value: staffDetail.employeeNo, icon: "🆔" },
+                                            { label: "ログインID", value: staffDetail.loginId, icon: "🔑" },
+                                            { label: "メールアドレス", value: staffDetail.email || "未設定", icon: "✉️" },
+                                            { label: "入社年月", value: staffDetail.joinDate || "未設定", icon: "🗓️" },
+                                            { label: "有休残日数", value: staffDetail.leaveBalances?.[0] ? `${staffDetail.leaveBalances[0].remainingDays}日` : "未設定", icon: "🌴" },
+                                            { label: "雇用形態", value: EMPLOYMENT_LABELS[staffDetail.employmentType], icon: "💼" },
+                                            { label: "役職", value: staffDetail.jobTitle || "未設定", icon: "🏷️" },
+                                            { label: "担当クラス", value: staffDetail.assignedClass || "未設定", icon: "📛" },
+                                            { label: "権限", value: ROLE_LABELS[staffDetail.role], icon: "🛡️" },
+                                            { label: "出勤時刻", value: staffDetail.defaultStart, icon: "☀️" },
+                                            { label: "退勤時刻", value: staffDetail.defaultEnd, icon: "🌙" },
+                                            { label: "所定労働時間", value: `${staffDetail.standardWorkHours}時間`, icon: "⏱" },
+                                            { label: "時間有休1日分", value: `${Math.ceil(staffDetail.standardWorkHours)}時間`, icon: "🕒" },
+                                            { label: "時間有休上限", value: `${Math.ceil(staffDetail.standardWorkHours) * 5}時間`, icon: "📅" },
+                                            { label: "産休開始日", value: staffDetail.maternityLeaveStart ? staffDetail.maternityLeaveStart.replace(/-/g, '/') : "—", icon: "🍼" },
+                                            { label: "産休終了日", value: staffDetail.maternityLeaveEnd ? staffDetail.maternityLeaveEnd.replace(/-/g, '/') : "—", icon: "🍼" },
+                                            { label: "育休開始日", value: staffDetail.childcareLeaveStart ? staffDetail.childcareLeaveStart.replace(/-/g, '/') : "—", icon: "👶" },
+                                            { label: "復職予定日", value: staffDetail.expectedReturnDate ? staffDetail.expectedReturnDate.replace(/-/g, '/') : "—", icon: "📅" },
+                                        ].map((item, i) => (
+                                            <div key={i} style={{
+                                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                                padding: "var(--space-md) 0",
+                                                borderBottom: i < 16 ? "1px solid rgba(232, 113, 159, 0.08)" : "none",
+                                            }}>
+                                                <span style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", color: "var(--text-secondary)", fontSize: "var(--font-size-sm)" }}>
+                                                    <span>{item.icon}</span> {item.label}
+                                                </span>
+                                                <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "var(--font-size-sm)" }}>
+                                                    {item.value}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <AdminStaffLeaveBalance staffId={staffDetail.id} />
+                            <AdminStaffSpecialBalances staffId={staffDetail.id} />
+                            <AdminStaffAbsenceRecord staffId={staffDetail.id} />
+                            <AdminStaffLeaveHistory staffId={staffDetail.id} />
+
+                            <button
+                                onClick={() => { setSelectedStaff(staffDetail.id); setAdminTab("attendance"); }}
+                                className="btn btn-primary"
+                                style={{ width: "100%", marginTop: "var(--space-lg)", padding: "var(--space-md)" }}
+                            >
+                                📅 この職員の勤怠を確認
+                            </button>
+                        </div>
+                    ) : (
+                        /* 職員一覧 */
+                        <div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-md)", flexWrap: "wrap", gap: "var(--space-sm)" }}>
+                                <h3 className={styles.sectionTitle} style={{ margin: 0 }}>👥 職員一覧 ({staffList.length}名)</h3>
+                                <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)" }}
+                                        onClick={handleExportStaff}
+                                        disabled={exportLoading}
+                                    >
+                                        {exportLoading ? "出力中..." : "📥 Excel出力"}
+                                    </button>
+                                    <input
+                                        type="file"
+                                        accept=".xlsx"
+                                        style={{ display: "none" }}
+                                        ref={fileInputRef}
+                                        onChange={handleImportStaff}
+                                    />
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)" }}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={importLoading}
+                                    >
+                                        {importLoading ? "読取中..." : "📤 Excel一括登録"}
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)", background: "var(--color-danger-light)", color: "var(--color-danger)" }}
+                                        onClick={() => {
+                                            if (selectedStaffIds.length === 0) {
+                                                alert("打刻する職員をチェックボックスで選択してください");
+                                                return;
+                                            }
+                                            setShowBulkClockOutModal(true);
+                                        }}
+                                    >
+                                        🕒 一斉退勤打刻
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)" }}
+                                        onClick={() => setShowAddForm(!showAddForm)}
+                                    >
+                                        {showAddForm ? "✕ 閉じる" : "➕ 職員追加"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {addMessage && (
+                                <div style={{
+                                    padding: "var(--space-sm) var(--space-md)",
+                                    borderRadius: "var(--radius-md)", marginBottom: "var(--space-md)",
+                                    background: addMessage.type === "success" ? "var(--color-success-bg)" : "var(--color-danger-bg)",
+                                    color: addMessage.type === "success" ? "var(--color-success)" : "var(--color-danger)",
+                                    fontSize: "var(--font-size-sm)", fontWeight: 600,
+                                }}>
+                                    {addMessage.type === "success" ? "✅" : "⚠️"} {addMessage.text}
+                                </div>
+                            )}
+
+                            {showAddForm && (
+                                <form onSubmit={handleAddStaff} style={{
+                                    background: "var(--bg-card)", border: "var(--border-light)",
+                                    borderRadius: "var(--radius-lg)", padding: "var(--space-lg)",
+                                    marginBottom: "var(--space-lg)", boxShadow: "var(--shadow-sm)",
+                                }}>
+                                    <div style={{ fontSize: "var(--font-size-base)", fontWeight: 700, marginBottom: "var(--space-md)", color: "var(--text-primary)" }}>
+                                        ➕ 新しい職員を登録
+                                    </div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-md)" }}>
+                                        <div className="input-group">
+                                            <label>名前 <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                                            <input className="input" placeholder="例: 山田太郎" value={newStaff.name}
+                                                onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })} required />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>ログインID <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                                            <input className="input" placeholder="例: yamadataro" value={newStaff.loginId}
+                                                onChange={(e) => setNewStaff({ ...newStaff, loginId: e.target.value })} required />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>メールアドレス (任意)</label>
+                                            <input className="input" type="email" placeholder="例: yamada@example.com" value={newStaff.email}
+                                                onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>入社年月 (任意)</label>
+                                            <input className="input" type="month" value={newStaff.joinDate}
+                                                onChange={(e) => setNewStaff({ ...newStaff, joinDate: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>職員番号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                                            <input className="input" placeholder="例: 301" value={newStaff.employeeNo}
+                                                onChange={(e) => setNewStaff({ ...newStaff, employeeNo: e.target.value })} required />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>雇用形態</label>
+                                            <select className="select" value={newStaff.employmentType}
+                                                onChange={(e) => setNewStaff({ ...newStaff, employmentType: e.target.value })}>
+                                                <option value="REGULAR">正規</option>
+                                                <option value="SHORT_TIME">時短</option>
+                                                <option value="PART_TIME">パート</option>
+                                            </select>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>役職 (任意)</label>
+                                            <input className="input" type="text" placeholder="例: 副園長、主任" value={newStaff.jobTitle}
+                                                onChange={(e) => setNewStaff({ ...newStaff, jobTitle: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>担当クラス (任意)</label>
+                                            <input className="input" type="text" placeholder="例: すいーとぴー組担任" value={newStaff.assignedClass}
+                                                onChange={(e) => setNewStaff({ ...newStaff, assignedClass: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>出勤時刻</label>
+                                            <input className="input" type="time" value={newStaff.defaultStart}
+                                                onChange={(e) => setNewStaff({ ...newStaff, defaultStart: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>退勤時刻</label>
+                                            <input className="input" type="time" value={newStaff.defaultEnd}
+                                                onChange={(e) => setNewStaff({ ...newStaff, defaultEnd: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>所定労働時間</label>
+                                            <input className="input" type="number" step="0.25" value={newStaff.standardWorkHours}
+                                                onChange={(e) => {
+                                                    const v = Number(e.target.value);
+                                                    setNewStaff({ ...newStaff, standardWorkHours: v, weeklyWorkHours: v * newStaff.weeklyWorkDays });
+                                                }} />
+                                            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                                                🕒 時間有休1日分: <strong>{Math.ceil(newStaff.standardWorkHours)}h</strong> (切上げ) <br/>
+                                                📅 年間上限: <strong>{Math.ceil(newStaff.standardWorkHours) * 5}h</strong>
+                                            </div>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>週の所定労働日数 {newStaff.employmentType === 'PART_TIME' && <span style={{ color: "var(--color-danger)" }}>*</span>}</label>
+                                            <input className="input" type="number" step="1" min="1" max="7" required={newStaff.employmentType === 'PART_TIME'} value={newStaff.weeklyWorkDays}
+                                                onChange={(e) => {
+                                                    const v = Number(e.target.value);
+                                                    setNewStaff({ ...newStaff, weeklyWorkDays: v, weeklyWorkHours: newStaff.standardWorkHours * v });
+                                                }} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>週の所定労働時間 <span style={{fontSize:"0.8em", color:"var(--text-secondary)"}}>(有休比例付与の計算用)</span> {newStaff.employmentType === 'PART_TIME' && <span style={{ color: "var(--color-danger)" }}>*</span>}</label>
+                                            <input className="input" type="number" step="0.25" required={newStaff.employmentType === 'PART_TIME'} value={newStaff.weeklyWorkHours}
+                                                onChange={(e) => setNewStaff({ ...newStaff, weeklyWorkHours: Number(e.target.value) })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>産休開始日</label>
+                                            <input className="input" type="date" value={newStaff.maternityLeaveStart}
+                                                onChange={(e) => setNewStaff({ ...newStaff, maternityLeaveStart: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>産休終了日</label>
+                                            <input className="input" type="date" value={newStaff.maternityLeaveEnd || ""}
+                                                onChange={(e) => setNewStaff({ ...newStaff, maternityLeaveEnd: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>育休開始日</label>
+                                            <input className="input" type="date" value={newStaff.childcareLeaveStart}
+                                                onChange={(e) => setNewStaff({ ...newStaff, childcareLeaveStart: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>復職予定日</label>
+                                            <input className="input" type="date" value={newStaff.expectedReturnDate}
+                                                onChange={(e) => setNewStaff({ ...newStaff, expectedReturnDate: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>パスワード</label>
+                                            <input className="input" type="password" placeholder="空欄は password123" value={newStaff.password}
+                                                onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>権限</label>
+                                            <select className="select" value={newStaff.role}
+                                                onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}>
+                                                <option value="STAFF">一般職員</option>
+                                                <option value="ADMIN">管理者</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: "var(--space-lg)", display: "flex", gap: "var(--space-md)", justifyContent: "flex-end" }}>
+                                        <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm(false)}>キャンセル</button>
+                                        <button type="submit" className="btn btn-primary" disabled={addLoading}>
+                                            {addLoading ? "登録中..." : "➕ 登録する"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                            <div style={{ marginBottom: "var(--space-sm)", display: "flex", alignItems: "center", gap: "var(--space-sm)", paddingLeft: "4px" }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={staffList.length > 0 && selectedStaffIds.length === staffList.length}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedStaffIds(staffList.map(s => s.id));
+                                        } else {
+                                            setSelectedStaffIds([]);
+                                        }
+                                    }}
+                                    style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                                />
+                                <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", fontWeight: 600 }}>
+                                    全選択 ({selectedStaffIds.length} 名選択中)
+                                </span>
+                            </div>
+
+                            <div className={styles.staffGrid}>
+                                {staffList.map((s) => {
+                                    const today = new Date().toISOString().split('T')[0];
+                                    const isMaternity = s.maternityLeaveStart && s.maternityLeaveStart <= today && (!s.expectedReturnDate || today <= s.expectedReturnDate);
+                                    const isChildcare = s.childcareLeaveStart && s.childcareLeaveStart <= today && (!s.expectedReturnDate || today <= s.expectedReturnDate);
+                                    const leaveType = isChildcare ? "育休" : (isMaternity ? "産休" : null);
+                                    const leaveStart = isChildcare ? s.childcareLeaveStart : s.maternityLeaveStart;
+                                    
+                                    let alertMsg = null;
+                                    if (leaveType && s.expectedReturnDate) {
+                                        const diffDays = (new Date(s.expectedReturnDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+                                        if (diffDays >= 0 && diffDays <= 30) {
+                                            alertMsg = `復職間近 (あと${Math.ceil(diffDays)}日)`;
+                                        }
+                                    }
+                                    const isSelected = selectedStaffIds.includes(s.id);
+
+                                     return (
+                                        <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", marginBottom: "var(--space-sm)" }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedStaffIds([...selectedStaffIds, s.id]);
+                                                    } else {
+                                                        setSelectedStaffIds(selectedStaffIds.filter(id => id !== s.id));
+                                                    }
+                                                }}
+                                                style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                                            />
+                                            <button
+                                                className={styles.staffCard}
+                                                onClick={() => setStaffDetailId(s.id)}
+                                                style={{ 
+                                                    flex: 1, margin: 0,
+                                                    ...(alertMsg ? { borderLeft: "4px solid var(--color-warning)", background: "#fffdf5" } : (leaveType ? { borderLeft: "4px solid #F06292", background: "#fcf0f5" } : {}))
+                                                }}
+                                            >
+                                            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", width: "100%" }}>
+                                                <span style={{ fontSize: "1.5rem" }}>{s.role === "ADMIN" ? "👑" : "👤"}</span>
+                                                <div style={{ flex: 1, textAlign: "left" }}>
+                                                    <span className={styles.staffCardName}>{s.name}</span>
+                                                    {leaveType && (
+                                                        <span style={{
+                                                            background: alertMsg ? "#fff3cd" : "#ffe4e1",
+                                                            color: alertMsg ? "#856404" : "#d63384",
+                                                            fontSize: "0.75rem", padding: "2px 8px", borderRadius: "12px",
+                                                            marginLeft: "8px", fontWeight: 700,
+                                                            display: "inline-block", verticalAlign: "middle"
+                                                        }}>
+                                                            {leaveType}中 ({leaveStart?.replace(/-/g, '/')}〜)
+                                                            {alertMsg && <span style={{ marginLeft: "4px", color: "#856404", borderLeft: "1px solid #ffeeba", paddingLeft: "4px" }}>⚠️ {alertMsg}</span>}
+                                                        </span>
+                                                    )}
+                                                    <div style={{ fontSize: "var(--font-size-xs)", color: "var(--text-secondary)", marginTop: "4px" }}>
+                                                        No.{s.employeeNo} · {EMPLOYMENT_LABELS[s.employmentType]} 
+                                                        {s.jobTitle ? ` · ${s.jobTitle}` : ""}
+                                                        {s.assignedClass ? ` · ${s.assignedClass}` : ""}
+                                                        {' · '}有休: {s.leaveBalances?.[0] ? `${s.leaveBalances[0].remainingDays}日` : "—"}
+                                                    </div>
+                                                </div>
+                                                <span style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-lg)" }}>›</span>
+                                             </div>
+                                         </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ========== 設定タブ ========== */}
+            {adminTab === "settings" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-lg)" }}>
+                    <AdminDutySettings />
+                    <AdminAnnualLeaveGrant />
+                    <AdminSpecialLeaveSettings />
+                </div>
+            )}
+
+            {/* ========== カレンダータブ ========== */}
+            {adminTab === "calendar" && (
+                <CalendarAdmin />
+            )}
+
+            {/* ========== 特別勤務設定タブ ========== */}
+            {adminTab === "specialHours" && (
+                <AdminScheduleOverride orgId={user.orgId} />
+            )}
+
+            {/* 一斉退勤打刻モーダル */}
+            {showBulkClockOutModal && (
+                <div className="modal-overlay" onClick={() => setShowBulkClockOutModal(false)}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "400px" }}>
+                        <div className="modal-header">
+                            <h2 style={{ fontSize: "1.2rem", fontWeight: "bold" }}>🕒 一斉退勤打刻</h2>
+                            <button className="modal-close" onClick={() => setShowBulkClockOutModal(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "var(--space-md)" }}>
+                                選択した {selectedStaffIds.length} 名の退勤記録を一括で行います。<br/>
+                                <span style={{ color: "var(--color-danger)", fontSize: "0.8rem" }}>※既に出勤している職員が対象です。</span>
+                            </p>
+                            
+                            <div className="input-group">
+                                <label>退勤時刻</label>
+                                <input 
+                                    type="time" 
+                                    className="input"
+                                    value={bulkClockOutTime}
+                                    onChange={(e) => setBulkClockOutTime(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="input-group" style={{ marginTop: "var(--space-md)" }}>
+                                <label>備考（例：全体会議のため）</label>
+                                <input 
+                                    type="text" 
+                                    className="input"
+                                    placeholder="一括入力する理由"
+                                    value={bulkClockOutMemo}
+                                    onChange={(e) => setBulkClockOutMemo(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ marginTop: "var(--space-lg)" }}>
+                            <button 
+                                className="btn btn-primary w-full"
+                                onClick={handleBulkClockOut}
+                                disabled={bulkProcessing}
+                            >
+                                {bulkProcessing ? "処理中..." : "✅ 一斉打刻を実行"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

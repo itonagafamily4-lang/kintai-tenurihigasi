@@ -1,0 +1,562 @@
+.container {
+    padding: var(--space-md) var(--space-lg);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-lg);
+}
+
+.headerTitle {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.headerSubtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.navButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    border: var(--border-light);
+}
+
+.navButton:hover {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+    transform: scale(1.05);
+}
+
+.navButton:active {
+    transform: scale(0.95);
+}
+
+/* 凡例 */
+.legend {
+    display: flex;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-lg);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: var(--border-light);
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.legendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+}
+
+.legendDotWork {
+    background: var(--color-success);
+}
+
+.legendDotLeave {
+    background: var(--color-primary);
+}
+
+.legendDotHoliday {
+    background: var(--color-accent);
+}
+
+.legendDotSick {
+    background: var(--color-warning);
+}
+
+.legendDotMissing {
+    background: var(--color-danger);
+}
+
+/* カレンダーグリッド */
+.calendarCard {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: var(--border-light);
+    overflow: hidden;
+}
+
+.weekHeader {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    padding: var(--space-sm) 0;
+}
+
+.weekDay {
+    text-align: center;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-inverse);
+    padding: var(--space-xs) 0;
+}
+
+.weekDay:first-child {
+    color: rgba(255, 200, 200, 1);
+}
+
+.weekDay:last-child {
+    color: rgba(180, 210, 255, 1);
+}
+
+.calendarGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: rgba(232, 113, 159, 0.06);
+    padding: 1px;
+}
+
+.dayCell {
+    background: var(--bg-card);
+    min-height: 70px;
+    padding: var(--space-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.dayCell:hover {
+    background: var(--color-primary-bg);
+}
+
+.dayCellEmpty {
+    background: #f9f7f8;
+    cursor: default;
+}
+
+.dayCellEmpty:hover {
+    background: #f9f7f8;
+}
+
+.dayCellToday {
+    background: rgba(232, 113, 159, 0.06);
+}
+
+.dayCellSunday {
+    background: rgba(255, 240, 240, 0.5);
+}
+
+.dayCellSaturday {
+    background: rgba(240, 245, 255, 0.5);
+}
+
+.dayCellSelected {
+    background: var(--color-primary-bg);
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.dayNumber {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    margin-bottom: 2px;
+}
+
+.dayNumberToday {
+    background: var(--color-primary);
+    color: var(--text-inverse);
+    font-weight: 700;
+}
+
+.dayNumberSunday {
+    color: var(--color-danger);
+}
+
+.dayNumberSaturday {
+    color: var(--color-accent);
+}
+
+.dayIndicators {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+}
+
+.indicatorWork {
+    background: var(--color-success);
+}
+
+.indicatorLeave {
+    background: var(--color-primary);
+}
+
+.indicatorHoliday {
+    background: var(--color-accent);
+}
+
+.indicatorSick {
+    background: var(--color-warning);
+}
+
+.indicatorMissing {
+    background: var(--color-danger);
+}
+
+.indicatorClockIn {
+    background: var(--color-secondary);
+}
+
+.indicatorTeamLeave {
+    background: #7C6BC4;
+}
+
+.indicatorEvent {
+    background: #E67E22;
+}
+
+.legendDotTeamLeave {
+    background: #7C6BC4;
+}
+
+.legendDotEvent {
+    background: #E67E22;
+}
+
+/* 日の詳細パネル */
+.detailPanel {
+    margin-top: var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: var(--border-light);
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+}
+
+.detailHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    background: linear-gradient(135deg, rgba(232, 113, 159, 0.05), rgba(212, 149, 106, 0.05));
+    border-bottom: var(--border-light);
+}
+
+.detailDate {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.detailDayOfWeek {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-left: var(--space-sm);
+}
+
+.detailClose {
+    background: none;
+    border: none;
+    font-size: var(--font-size-xl);
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: var(--space-xs);
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+}
+
+.detailClose:hover {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+}
+
+.detailBody {
+    padding: var(--space-lg);
+}
+
+.detailRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid rgba(232, 113, 159, 0.08);
+}
+
+.detailRow:last-child {
+    border-bottom: none;
+}
+
+.detailLabel {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.detailValue {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 2px var(--space-sm);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.statusWork {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.statusLeave {
+    background: rgba(232, 113, 159, 0.1);
+    color: var(--color-primary);
+}
+
+.statusHoliday {
+    background: rgba(124, 158, 178, 0.1);
+    color: var(--color-accent);
+}
+
+.statusSick {
+    background: var(--color-warning-bg);
+    color: #8B6914;
+}
+
+.statusMissing {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+}
+
+.noDetail {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* チームメンバー休暇セクション */
+.teamLeaveSection {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 2px solid rgba(124, 107, 196, 0.15);
+}
+
+.teamLeaveTitle {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: #7C6BC4;
+    margin-bottom: var(--space-sm);
+}
+
+.teamLeaveItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-xs) var(--space-sm);
+    background: rgba(124, 107, 196, 0.06);
+    border-radius: var(--radius-md);
+    margin-bottom: 4px;
+}
+
+.teamLeaveName {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.teamLeaveType {
+    font-size: var(--font-size-xs);
+    color: #7C6BC4;
+    font-weight: 500;
+    background: rgba(124, 107, 196, 0.1);
+    padding: 2px var(--space-sm);
+    border-radius: var(--radius-full);
+}
+
+/* Googleカレンダーイベントセクション */
+.eventsSection {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 2px solid rgba(230, 126, 34, 0.15);
+}
+
+.eventsTitle {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: #E67E22;
+    margin-bottom: var(--space-sm);
+}
+
+.eventItem {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    background: rgba(230, 126, 34, 0.06);
+    border-radius: var(--radius-md);
+    margin-bottom: 4px;
+}
+
+.eventDot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: #E67E22;
+    margin-top: 5px;
+    flex-shrink: 0;
+}
+
+.eventName {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.eventTime {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.eventDesc {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* 月間サマリー */
+.summaryCard {
+    margin-top: var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: var(--border-light);
+    padding: var(--space-lg);
+}
+
+.summaryTitle {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+}
+
+.summaryItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+}
+
+.summaryItemLabel {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.summaryItemValue {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* ローディング */
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2xl);
+    gap: var(--space-md);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-primary-bg);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* レスポンシブ */
+@media (max-width: 767px) {
+    .dayCell {
+        min-height: 54px;
+        padding: 2px;
+    }
+
+    .dayNumber {
+        font-size: var(--font-size-xs);
+        width: 22px;
+        height: 22px;
+    }
+
+    .indicator {
+        width: 4px;
+        height: 4px;
+    }
+
+    .summaryGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .legend {
+        gap: var(--space-sm);
+    }
+}
