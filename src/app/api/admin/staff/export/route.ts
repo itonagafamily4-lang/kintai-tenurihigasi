@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
             "基本出勤時間": staff.defaultStart,
             "基本退勤時間": staff.defaultEnd,
             "1日の標準労働時間": staff.standardWorkHours,
+            "休憩控除時間(h)": staff.breakTimeHours,
+            "休憩発生しきい値(h)": staff.breakThresholdHours,
             "入社年月(YYYY-MM)": staff.joinDate || "",
             "ステータス": staff.isActive ? "有効" : "無効",
         }));

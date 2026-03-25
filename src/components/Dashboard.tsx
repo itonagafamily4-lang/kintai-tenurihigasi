@@ -34,7 +34,7 @@ const EMPLOYMENT_LABELS: Record<string, string> = {
     SHORT_TIME: "時短職員",
 };
 
-const OVERTIME_REASONS = ["保護者対応", "行事準備", "書類作成", "会議", "その他"];
+const OVERTIME_REASONS = ["くま1", "くま2", "くま3", "くま4", "くま5", "くま6", "会議", "行事準備", "その他"];
 
 interface Duty {
     id: string;

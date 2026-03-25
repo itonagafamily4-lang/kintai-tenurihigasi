@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         // 出勤レコードを検索
         const existing = await prisma.attendance.findUnique({
             where: { staffId_workDate: { staffId: user.id, workDate: today } },
+            include: { staff: { select: { breakTimeHours: true, breakThresholdHours: true } } }
         });
 
         if (!existing || existing.status !== 'CLOCKED_IN') {
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
 
         const calcSettings = {
             standardWorkHours: parseFloat(settingsMap['standard_work_hours'] || '7.75'),
-            breakThresholdHours: parseFloat(settingsMap['break_threshold_hours'] || '6'),
-            breakDeductionHours: parseFloat(settingsMap['break_deduction_hours'] || '0.75'),
+            breakThresholdHours: existing.staff?.breakThresholdHours ?? parseFloat(settingsMap['break_threshold_hours'] || '6'),
+            breakDeductionHours: existing.staff?.breakTimeHours ?? parseFloat(settingsMap['break_deduction_hours'] || '0.75'),
             overtimeThresholdTime: settingsMap['overtime_threshold_time'] || '17:30',
             overtimeUnitMinutes: parseInt(settingsMap['overtime_unit_minutes'] || '15'),
             shortTimeEnd: settingsMap['short_time_end'] || '16:30',

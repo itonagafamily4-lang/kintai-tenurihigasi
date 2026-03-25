@@ -47,6 +47,8 @@ model Staff {
   defaultStart          String                 @default("08:30")
   defaultEnd            String                 @default("17:30")
   standardWorkHours     Float                  @default(8)
+  breakTimeHours        Float                  @default(0.75)
+  breakThresholdHours   Float                  @default(6.0)
   weeklyWorkDays        Int                    @default(5)
   weeklyWorkHours       Float                  @default(40)
   childcareLeaveStart   String?

@@ -12,6 +12,8 @@ export async function GET() {
         }
 
         const session = JSON.parse(sessionCookie.value);
+        console.log(`[Staff GET] OrgId: ${session.orgId}, Role: ${session.role}`);
+        
         if (session.role !== "ADMIN") {
             return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
         }
@@ -32,6 +34,8 @@ export async function GET() {
                 defaultStart: true,
                 defaultEnd: true,
                 standardWorkHours: true,
+                breakTimeHours: true,
+                breakThresholdHours: true,
                 weeklyWorkDays: true,
                 weeklyWorkHours: true,
                 maternityLeaveStart: true,
@@ -51,9 +55,9 @@ export async function GET() {
         });
 
         return NextResponse.json({ staff });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Staff API error:", error);
-        return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
+        return NextResponse.json({ error: `サーバーエラー: ${error.message || error}` }, { status: 500 });
     }
 }
 
@@ -75,7 +79,8 @@ export async function POST(req: NextRequest) {
         const {
             name, email, loginId, employeeNo, employmentType, jobTitle, assignedClass, role,
             defaultStart, defaultEnd, standardWorkHours, password, joinDate,
-            weeklyWorkDays, weeklyWorkHours, maternityLeaveStart, maternityLeaveEnd, childcareLeaveStart, childcareLeaveEnd, expectedReturnDate
+            weeklyWorkDays, weeklyWorkHours, maternityLeaveStart, maternityLeaveEnd, childcareLeaveStart, childcareLeaveEnd, expectedReturnDate,
+            breakTimeHours, breakThresholdHours
         } = body;
 
         // バリデーション
@@ -123,6 +128,8 @@ export async function POST(req: NextRequest) {
                 defaultStart: defaultStart || "08:30",
                 defaultEnd: defaultEnd || "17:30",
                 standardWorkHours: standardWorkHours ? parseFloat(standardWorkHours) : 8.0,
+                breakTimeHours: breakTimeHours ? parseFloat(breakTimeHours) : 0.75,
+                breakThresholdHours: breakThresholdHours ? parseFloat(breakThresholdHours) : 6.0,
                 weeklyWorkDays: weeklyWorkDays ? parseInt(weeklyWorkDays) : 5,
                 weeklyWorkHours: weeklyWorkHours ? parseFloat(weeklyWorkHours) : 40.0,
                 maternityLeaveStart: maternityLeaveStart || null,

@@ -19,7 +19,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const {
             name, email, loginId, employeeNo, employmentType, jobTitle, assignedClass, role,
             defaultStart, defaultEnd, standardWorkHours, password, joinDate,
-            weeklyWorkDays, weeklyWorkHours, maternityLeaveStart, maternityLeaveEnd, childcareLeaveStart, childcareLeaveEnd, expectedReturnDate
+            weeklyWorkDays, weeklyWorkHours, maternityLeaveStart, maternityLeaveEnd, childcareLeaveStart, childcareLeaveEnd, expectedReturnDate,
+            breakTimeHours, breakThresholdHours
         } = body;
 
         // Validation
@@ -47,6 +48,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             defaultStart,
             defaultEnd,
             standardWorkHours: standardWorkHours ? parseFloat(standardWorkHours) : undefined,
+            breakTimeHours: breakTimeHours !== undefined ? parseFloat(breakTimeHours) : undefined,
+            breakThresholdHours: breakThresholdHours !== undefined ? parseFloat(breakThresholdHours) : undefined,
             joinDate: joinDate || null,
             weeklyWorkDays: weeklyWorkDays ? parseInt(weeklyWorkDays) : undefined,
             weeklyWorkHours: weeklyWorkHours ? parseFloat(weeklyWorkHours) : undefined,
@@ -81,6 +84,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                 defaultStart: updatedStaff.defaultStart,
                 defaultEnd: updatedStaff.defaultEnd,
                 joinDate: updatedStaff.joinDate,
+                breakTimeHours: updatedStaff.breakTimeHours,
+                breakThresholdHours: updatedStaff.breakThresholdHours,
                 weeklyWorkDays: updatedStaff.weeklyWorkDays,
                 weeklyWorkHours: updatedStaff.weeklyWorkHours,
                 maternityLeaveStart: updatedStaff.maternityLeaveStart,

@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
                     staffId: session.id,
                     workDate: date
                 }
-            }
+            },
+            include: { staff: { select: { breakTimeHours: true, breakThresholdHours: true } } }
         });
 
         // 設定マスタから計算パラメータを取得
@@ -30,10 +31,16 @@ export async function POST(req: NextRequest) {
         const settingsMap: Record<string, string> = {};
         settingsRows.forEach(s => { settingsMap[s.key] = s.value; });
 
+        // 職員ごとの休憩設定を取得
+        const staff = await prisma.staff.findUnique({
+            where: { id: session.id },
+            select: { breakTimeHours: true, breakThresholdHours: true }
+        });
+
         const calcSettings = {
             standardWorkHours: parseFloat(settingsMap['standard_work_hours'] || '7.75'),
-            breakThresholdHours: parseFloat(settingsMap['break_threshold_hours'] || '6'),
-            breakDeductionHours: parseFloat(settingsMap['break_deduction_hours'] || '0.75'),
+            breakThresholdHours: staff?.breakThresholdHours ?? parseFloat(settingsMap['break_threshold_hours'] || '6'),
+            breakDeductionHours: staff?.breakTimeHours ?? parseFloat(settingsMap['break_deduction_hours'] || '0.75'),
             overtimeThresholdTime: settingsMap['overtime_threshold_time'] || '17:30',
             overtimeUnitMinutes: parseInt(settingsMap['overtime_unit_minutes'] || '15'),
             shortTimeEnd: settingsMap['short_time_end'] || '16:30',

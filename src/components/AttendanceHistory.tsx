@@ -77,7 +77,7 @@ interface Props {
 }
 
 const DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
-const OVERTIME_REASONS = ["保護者対応", "行事準備", "書類作成", "会議", "その他"];
+const OVERTIME_REASONS = ["くま1", "くま2", "くま3", "くま4", "くま5", "くま6", "会議", "行事準備", "その他"];
 
 interface Duty {
     id: string;
@@ -271,6 +271,7 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                             <th>退勤</th>
                             {user.employmentType !== "PART_TIME" && <th>残業</th>}
                             {user.employmentType === "SHORT_TIME" && <th>時短</th>}
+                            <th>休憩</th>
                             <th>食事</th>
                             <th>備考</th>
                         </tr>
@@ -327,6 +328,7 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                                             {hasAttendance && day.attendance!.shortTimeValue !== 0 ? day.attendance!.shortTimeValue : "—"}
                                         </td>
                                     )}
+                                    <td>{hasAttendance && day.attendance!.breakHours > 0 ? `${day.attendance!.breakHours}h` : "—"}</td>
                                     <td>{hasAttendance && day.attendance!.clockIn ? (day.attendance!.mealCount > 0 ? "○" : "✗") : "—"}</td>
                                     <td className={styles.tdMemo}>
                                         {dayLabel && <span className={styles.leaveTag}>{dayLabel}</span>}

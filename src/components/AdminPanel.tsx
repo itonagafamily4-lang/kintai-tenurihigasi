@@ -26,6 +26,8 @@ interface StaffMember {
     defaultStart: string;
     defaultEnd: string;
     standardWorkHours: number;
+    breakTimeHours: number;
+    breakThresholdHours: number;
     weeklyWorkDays: number;
     weeklyWorkHours: number;
     maternityLeaveStart: string | null;
@@ -48,6 +50,7 @@ interface DayRecord {
         clockIn: string | null;
         clockOut: string | null;
         actualWorkHours: number;
+        breakHours: number;
         overtimeHours: number;
         overtimeReason: string | null;
         overtimeMemo: string | null;
@@ -139,6 +142,7 @@ export default function AdminPanel({ user }: Props) {
         name: "", email: "", loginId: "", employeeNo: "",
         employmentType: "REGULAR", jobTitle: "", assignedClass: "", role: "STAFF",
         defaultStart: "08:30", defaultEnd: "17:30", standardWorkHours: 8.0,
+        breakTimeHours: 0.75, breakThresholdHours: 6.0,
         weeklyWorkDays: 5, weeklyWorkHours: 40.0,
         maternityLeaveStart: "", maternityLeaveEnd: "", childcareLeaveStart: "", childcareLeaveEnd: "", expectedReturnDate: "",
         password: "",
@@ -153,16 +157,23 @@ export default function AdminPanel({ user }: Props) {
         setBulkClockOutTime(`${hh}:${mm}`);
     }, [showBulkClockOutModal]);
 
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const fetchStaffList = useCallback(async () => {
+        setLoading(true);
+        setFetchError(null);
         try {
             const res = await fetch("/api/admin/staff");
             const data = await res.json();
-            const list = data.staff || [];
-            setStaffList(list);
-            // 選択中の職員がいない場合のみ、最初の職員を自動選択
-            setSelectedStaff(prev => prev || (list.length > 0 ? list[0].id : ""));
+            if (res.ok && data.staff) {
+                const list = data.staff;
+                setStaffList(list);
+                // 選択中の職員がいない場合のみ、最初の職員を自動選択
+                setSelectedStaff(prev => prev || (list.length > 0 ? list[0].id : ""));
+            } else {
+                setFetchError(data.error || "職員名簿の取得に失敗しました");
+            }
         } catch {
-            // error
+            setFetchError("ネットワークエラーが発生しました");
         }
         setLoading(false);
     }, []); // 依存関係を空にして、職員選択ごとの再取得を防止
@@ -287,6 +298,7 @@ export default function AdminPanel({ user }: Props) {
                 setNewStaff({
                     name: "", email: "", loginId: "", employeeNo: "", employmentType: "REGULAR", jobTitle: "", assignedClass: "", role: "STAFF",
                     defaultStart: "08:30", defaultEnd: "17:30", standardWorkHours: 8.0,
+                    breakTimeHours: 0.75, breakThresholdHours: 6.0,
                     weeklyWorkDays: 5, weeklyWorkHours: 40.0, maternityLeaveStart: "", maternityLeaveEnd: "", childcareLeaveStart: "", childcareLeaveEnd: "", expectedReturnDate: "",
                     password: "", joinDate: ""
                 });
@@ -563,6 +575,7 @@ export default function AdminPanel({ user }: Props) {
                                         <th>退勤</th>
                                         {empType !== "PART_TIME" && <th>残業</th>}
                                         {empType === "SHORT_TIME" && <th>時短</th>}
+                                        <th>休憩</th>
                                         <th>有給h</th>
                                         <th>食事</th>
                                         <th>備考</th>
@@ -603,6 +616,7 @@ export default function AdminPanel({ user }: Props) {
                                                 {empType === "SHORT_TIME" && (
                                                     <td>{hasAtt && day.attendance!.shortTimeValue !== 0 ? day.attendance!.shortTimeValue : "—"}</td>
                                                 )}
+                                                <td>{hasAtt && day.attendance!.breakHours > 0 ? `${day.attendance!.breakHours}h` : "—"}</td>
                                                 <td>{hasAtt && day.attendance!.hourlyLeave > 0 ? day.attendance!.hourlyLeave : "—"}</td>
                                                 <td>{hasAtt && day.attendance!.clockIn ? (day.attendance!.mealCount > 0 ? "○" : "✗") : "—"}</td>
                                                 <td className={styles.tdMemo}>
@@ -782,6 +796,14 @@ export default function AdminPanel({ user }: Props) {
                                             </div>
                                         </div>
                                         <div className="input-group">
+                                            <label>休憩控除時間 (h) <span style={{fontSize:"0.8em", color:"var(--text-secondary)"}}>(0.75=45分, 1.0=60分)</span></label>
+                                            <input className="input" type="number" step="0.05" value={editStaff.breakTimeHours} onChange={(e) => setEditStaff({ ...editStaff, breakTimeHours: Number(e.target.value) })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>休憩発生しきい値 (h) <span style={{fontSize:"0.8em", color:"var(--text-secondary)"}}>(例: 6.0なら6h以上勤務で発生)</span></label>
+                                            <input className="input" type="number" step="0.5" value={editStaff.breakThresholdHours} onChange={(e) => setEditStaff({ ...editStaff, breakThresholdHours: Number(e.target.value) })} />
+                                        </div>
+                                        <div className="input-group">
                                             <label>週の所定労働日数 {editStaff.employmentType === 'PART_TIME' && <span style={{ color: "var(--color-danger)" }}>*</span>}</label>
                                             <input className="input" type="number" step="1" min="1" max="7" required={editStaff.employmentType === 'PART_TIME'} value={editStaff.weeklyWorkDays} onChange={(e) => {
                                                 const v = Number(e.target.value);
@@ -855,6 +877,8 @@ export default function AdminPanel({ user }: Props) {
                                             { label: "所定労働時間", value: `${staffDetail.standardWorkHours}時間`, icon: "⏱" },
                                             { label: "時間有休1日分", value: `${Math.ceil(staffDetail.standardWorkHours)}時間`, icon: "🕒" },
                                             { label: "時間有休上限", value: `${Math.ceil(staffDetail.standardWorkHours) * 5}時間`, icon: "📅" },
+                                            { label: "休憩控除時間", value: `${staffDetail.breakTimeHours}時間 (${Math.round(staffDetail.breakTimeHours * 60)}分)`, icon: "☕" },
+                                            { label: "休憩発生しきい値", value: `${staffDetail.breakThresholdHours}時間`, icon: "⌛" },
                                             { label: "産休開始日", value: staffDetail.maternityLeaveStart ? staffDetail.maternityLeaveStart.replace(/-/g, '/') : "—", icon: "🍼" },
                                             { label: "産休終了日", value: staffDetail.maternityLeaveEnd ? staffDetail.maternityLeaveEnd.replace(/-/g, '/') : "—", icon: "🍼" },
                                             { label: "育休開始日", value: staffDetail.childcareLeaveStart ? staffDetail.childcareLeaveStart.replace(/-/g, '/') : "—", icon: "👶" },
@@ -891,8 +915,31 @@ export default function AdminPanel({ user }: Props) {
                             </button>
                         </div>
                     ) : (
-                        /* 職員一覧 */
                         <div>
+                            {loading && (
+                                <div style={{ textAlign: "center", padding: "var(--space-md)" }}>
+                                    <div className={styles.spinner} style={{ margin: "0 auto var(--space-sm)" }}></div>
+                                    <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>読み込み中...</p>
+                                </div>
+                            )}
+
+                            {fetchError && (
+                                <div style={{
+                                    padding: "var(--space-md)", background: "var(--color-danger-bg)",
+                                    color: "var(--color-danger)", borderRadius: "var(--radius-md)",
+                                    marginBottom: "var(--space-md)", fontWeight: 600, fontSize: "0.9rem",
+                                    border: "1px solid var(--color-danger)"
+                                }}>
+                                    ⚠️ {fetchError}
+                                    <button
+                                        onClick={() => fetchStaffList()}
+                                        style={{ marginLeft: "var(--space-sm)", textDecoration: "underline", background: "none", border: "none", color: "inherit", cursor: "pointer" }}
+                                    >
+                                        再試行
+                                    </button>
+                                </div>
+                            )}
+
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-md)", flexWrap: "wrap", gap: "var(--space-sm)" }}>
                                 <h3 className={styles.sectionTitle} style={{ margin: 0 }}>👥 職員一覧 ({staffList.length}名)</h3>
                                 <div style={{ display: "flex", gap: "var(--space-sm)" }}>
@@ -1029,6 +1076,16 @@ export default function AdminPanel({ user }: Props) {
                                                 🕒 時間有休1日分: <strong>{Math.ceil(newStaff.standardWorkHours)}h</strong> (切上げ) <br/>
                                                 📅 年間上限: <strong>{Math.ceil(newStaff.standardWorkHours) * 5}h</strong>
                                             </div>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>休憩控除時間 (h) <span style={{fontSize:"0.8em", color:"var(--text-secondary)"}}>(0.75=45分, 1.0=60分)</span></label>
+                                            <input className="input" type="number" step="0.05" value={newStaff.breakTimeHours}
+                                                onChange={(e) => setNewStaff({ ...newStaff, breakTimeHours: Number(e.target.value) })} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>休憩発生しきい値 (h) <span style={{fontSize:"0.8em", color:"var(--text-secondary)"}}>(例: 6.0なら6h以上勤務で発生)</span></label>
+                                            <input className="input" type="number" step="0.5" value={newStaff.breakThresholdHours}
+                                                onChange={(e) => setNewStaff({ ...newStaff, breakThresholdHours: Number(e.target.value) })} />
                                         </div>
                                         <div className="input-group">
                                             <label>週の所定労働日数 {newStaff.employmentType === 'PART_TIME' && <span style={{ color: "var(--color-danger)" }}>*</span>}</label>

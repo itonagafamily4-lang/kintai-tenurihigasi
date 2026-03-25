@@ -13,69 +13,31 @@ export async function GET() {
             return NextResponse.json({ duties: [] });
         }
 
-        // 移行対象の存在チェック（無効なものも含めて確認）
-        const allDuties = await (prisma as any).dutyMaster.findMany({
-            where: { orgId: session.orgId },
+        // 全ての有効な当番を取得
+        const duties = await (prisma as any).dutyMaster.findMany({
+            where: { orgId: session.orgId, isActive: true },
+            orderBy: { startTime: "asc" },
         });
-        const allExistingNames = new Set(allDuties.map((d: any) => d.name));
-        const activeDuties = allDuties.filter((d: any) => d.isActive);
 
-        const migrationTargets = [
-            { name: "早出", start: "duty_early_start", end: "duty_early_end" },
-            { name: "遅出", start: "duty_late_start", end: "duty_late_end" },
-        ];
-
-        const needsMigration = migrationTargets.filter(t => !allExistingNames.has(t.name));
-        const needsReactivation = allDuties.filter((d: any) => 
-            !d.isActive && migrationTargets.some(t => t.name === d.name)
-        );
-
-        let duties = activeDuties;
-
-        // 再有効化が必要なものがあれば更新
-        if (needsReactivation.length > 0) {
-            for (const d of needsReactivation) {
-                await (prisma as any).dutyMaster.update({
-                    where: { id: d.id },
-                    data: { isActive: true },
-                });
-            }
-            // duties をリロード
-            duties = await (prisma as any).dutyMaster.findMany({
-                where: { orgId: session.orgId, isActive: true },
-                orderBy: { startTime: "asc" },
+        // 初回利用時などで全く当番がない場合のみ、デフォルト（早出・遅出）を作成
+        if (duties.length === 0) {
+            const allExisting = await (prisma as any).dutyMaster.findMany({
+                where: { orgId: session.orgId }
             });
-        }
-
-        if (needsMigration.length > 0) {
-            const settings = await prisma.settingMaster.findMany({
-                where: { orgId: session.orgId },
-            });
-            const settingsMap: Record<string, string> = {};
-            settings.forEach(s => { settingsMap[s.key] = s.value; });
-
-            const toCreate = [];
-            for (const target of needsMigration) {
-                const startTime = settingsMap[target.start] || (target.name === "早出" ? "07:30" : "10:30");
-                const endTime = settingsMap[target.end] || (target.name === "早出" ? "16:00" : "19:00");
-                
-                toCreate.push({
-                    orgId: session.orgId,
-                    name: target.name,
-                    startTime,
-                    endTime,
-                    isActive: true
-                });
-            }
-
-            if (toCreate.length > 0) {
-                for (const data of toCreate) {
-                    await (prisma as any).dutyMaster.create({ data });
+            // 過去に一度も作成されたことがない場合のみ実行
+            if (allExisting.length === 0) {
+                const defaults = [
+                    { orgId: session.orgId, name: "早出", startTime: "07:30", endTime: "16:00", isActive: true },
+                    { orgId: session.orgId, name: "遅出", startTime: "10:30", endTime: "19:00", isActive: true },
+                ];
+                for (const d of defaults) {
+                    await (prisma as any).dutyMaster.create({ data: d });
                 }
-                duties = await (prisma as any).dutyMaster.findMany({
+                const newDuties = await (prisma as any).dutyMaster.findMany({
                     where: { orgId: session.orgId, isActive: true },
                     orderBy: { startTime: "asc" },
                 });
+                return NextResponse.json({ duties: newDuties });
             }
         }
 

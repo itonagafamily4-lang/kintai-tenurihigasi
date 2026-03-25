@@ -15,4 +15,4 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-// Last updated: 2026-03-13T22:20:00 (Reload nudge)
+// Last updated: 2026-03-25T14:43:00 (Reload nudge)

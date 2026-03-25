@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
             const defaultStart = row["基本出勤時間"] || "08:30";
             const defaultEnd = row["基本退勤時間"] || "17:30";
             const standardWorkHours = parseFloat(row["1日の標準労働時間"]) || 8.0;
+            const breakTimeHours = row["休憩控除時間(h)"] ? parseFloat(row["休憩控除時間(h)"]) : 0.75;
+            const breakThresholdHours = row["休憩発生しきい値(h)"] ? parseFloat(row["休憩発生しきい値(h)"]) : 6.0;
             const joinDate = row["入社年月(YYYY-MM)"]?.toString() || null;
             const isActiveStr = row["ステータス"];
 
@@ -78,6 +80,8 @@ export async function POST(req: NextRequest) {
                     defaultStart,
                     defaultEnd,
                     standardWorkHours,
+                    breakTimeHours,
+                    breakThresholdHours,
                     joinDate,
                     isActive,
                     loginId
@@ -108,6 +112,8 @@ export async function POST(req: NextRequest) {
                         defaultEnd,
                         // @ts-ignore
                         standardWorkHours,
+                        breakTimeHours,
+                        breakThresholdHours,
                         joinDate,
                         isActive
                     }
