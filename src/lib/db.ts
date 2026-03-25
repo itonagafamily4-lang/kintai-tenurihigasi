@@ -12,7 +12,8 @@ const globalForPrisma = globalThis as unknown as {
     prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const prisma = globalForPrisma.prisma || createPrismaClient();
 
+// 強制リロードのトリガー（タイムスタンプ）: 2026/03/25 16:35
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 // Last updated: 2026-03-25T14:43:00 (Reload nudge)

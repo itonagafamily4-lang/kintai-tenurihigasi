@@ -35,6 +35,18 @@ export async function POST(req: NextRequest) {
         let updateCount = 0;
         let errorCount = 0;
 
+        const formatExcelTime = (val: any, fallback: string) => {
+            if (!val) return fallback;
+            if (typeof val === "number") {
+                // Excelの時間は1日を1.0とした小数
+                const totalMinutes = Math.round(val * 24 * 60);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+            }
+            return val.toString();
+        };
+
         for (const row of rows as any[]) {
             const employeeNo = row["職員番号"]?.toString();
             const name = row["名前"];
@@ -42,8 +54,8 @@ export async function POST(req: NextRequest) {
             const passwordRaw = row["パスワード(変更時のみ)"]?.toString();
             const empTypeStr = row["雇用形態"];
             const roleStr = row["権限"];
-            const defaultStart = row["基本出勤時間"] || "08:30";
-            const defaultEnd = row["基本退勤時間"] || "17:30";
+            const defaultStart = formatExcelTime(row["基本出勤時間"], "08:30");
+            const defaultEnd = formatExcelTime(row["基本退勤時間"], "17:30");
             const standardWorkHours = parseFloat(row["1日の標準労働時間"]) || 8.0;
             const breakTimeHours = row["休憩控除時間(h)"] ? parseFloat(row["休憩控除時間(h)"]) : 0.75;
             const breakThresholdHours = row["休憩発生しきい値(h)"] ? parseFloat(row["休憩発生しきい値(h)"]) : 6.0;
@@ -129,6 +141,6 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error("Staff import error:", error);
-        return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+        return NextResponse.json({ error: "インポートに失敗しました" }, { status: 500 });
     }
 }

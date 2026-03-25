@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
         });
     } catch (error) {
         console.error("Staff create error:", error);
-        return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
+        return NextResponse.json({ error: "登録に失敗しました" }, { status: 500 });
     }
 }
 

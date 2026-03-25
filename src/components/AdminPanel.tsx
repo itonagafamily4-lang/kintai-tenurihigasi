@@ -372,7 +372,7 @@ export default function AdminPanel({ user }: Props) {
                 alert(data.message);
                 await fetchStaffList();
             } else {
-                alert(data.error);
+                alert(`${data.error}${data.detail ? ` (${data.detail})` : ""}`);
             }
         } catch {
             alert("インポート中にエラーが発生しました");
