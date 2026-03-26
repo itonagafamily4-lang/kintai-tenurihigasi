@@ -62,6 +62,7 @@ model Staff {
   maternityLeaveEnd     String?
   jobTitle              String?
   assignedClass         String?
+  status                String                 @default("ACTIVE")
   attendances           Attendance[]
   leaveBalances         LeaveBalance[]
   leaveOfAbsenceRecords LeaveOfAbsenceRecord[]
@@ -94,7 +95,7 @@ model Attendance {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   dutyType         String?
-  staff            Staff    @relation(fields: [staffId], references: [id])
+  staff            Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, workDate])
 }
@@ -114,7 +115,7 @@ model LeaveRequest {
   gcalEventId    String?
   createdAt      DateTime       @default(now())
   approval       LeaveApproval?
-  staff          Staff          @relation(fields: [staffId], references: [id])
+  staff          Staff          @relation(fields: [staffId], references: [id], onDelete: Cascade)
 }
 
 model LeaveApproval {
@@ -124,7 +125,7 @@ model LeaveApproval {
   action     String
   comment    String?
   actionedAt DateTime     @default(now())
-  request    LeaveRequest @relation(fields: [requestId], references: [id])
+  request    LeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 }
 
 model LeaveBalance {
@@ -139,7 +140,7 @@ model LeaveBalance {
   timeLeaveUsedHours Float    @default(0)
   mandatoryTakeDays  Float    @default(0)
   updatedAt          DateTime @updatedAt
-  staff              Staff    @relation(fields: [staffId], references: [id])
+  staff              Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, fiscalYear])
 }
@@ -178,7 +179,7 @@ model SpecialLeaveBalance {
   totalDays  Float    @default(5)
   usedDays   Float    @default(0)
   updatedAt  DateTime @updatedAt
-  staff      Staff    @relation(fields: [staffId], references: [id])
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@unique([staffId, fiscalYear, leaveType])
 }

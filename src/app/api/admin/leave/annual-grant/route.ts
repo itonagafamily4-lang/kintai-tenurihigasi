@@ -103,7 +103,7 @@ export async function POST(req: Request) {
 
         // Fetch all active staff
         const staffList = await prisma.staff.findMany({
-            where: { orgId: session.orgId, isActive: true },
+            where: { orgId: session.orgId, isActive: true, status: { not: "RETIRED" } },
             include: {
                 leaveBalances: true,
             }

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         const carryOverLimit = setting ? parseFloat(setting.value) : 20.0;
 
         const staffs = await prisma.staff.findMany({
-            where: { orgId: session.orgId, isActive: true },
+            where: { orgId: session.orgId, isActive: true, status: { not: "RETIRED" } },
         });
 
         let updatedCount = 0;

@@ -87,11 +87,29 @@ interface Duty {
 }
 
 export default function AttendanceHistory({ user, highlightDate, onClearHighlight }: Props) {
-    const defaultDate = highlightDate ? new Date(highlightDate) : new Date();
     const [data, setData] = useState<HistoryData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [year, setYear] = useState(defaultDate.getFullYear());
-    const [month, setMonth] = useState(defaultDate.getMonth() + 1);
+
+    const getInitialYM = () => {
+        if (highlightDate) {
+            const d = new Date(highlightDate);
+            return { y: d.getFullYear(), m: d.getMonth() + 1 };
+        }
+        const now = new Date();
+        const dNum = now.getDate();
+        let y = now.getFullYear();
+        let m = now.getMonth() + 1;
+        // 10日締めなので11日からは翌月分
+        if (dNum > 10) {
+            m += 1;
+            if (m > 12) { m = 1; y += 1; }
+        }
+        return { y, m };
+    };
+
+    const initial = getInitialYM();
+    const [year, setYear] = useState(initial.y);
+    const [month, setMonth] = useState(initial.m);
 
     const [editingDay, setEditingDay] = useState<DayRecord | null>(null);
     const [editClockIn, setEditClockIn] = useState("");

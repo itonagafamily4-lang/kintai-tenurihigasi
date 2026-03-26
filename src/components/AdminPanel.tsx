@@ -110,8 +110,32 @@ const DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
 export default function AdminPanel({ user }: Props) {
     const [staffList, setStaffList] = useState<StaffMember[]>([]);
     const [selectedStaff, setSelectedStaff] = useState<string>("");
-    const [year, setYear] = useState(new Date().getFullYear());
-    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    
+    // 締め日（10日）を考慮して初期年月を決定
+    const getEffectiveYearMonth = useCallback(() => {
+        const now = new Date();
+        const d = now.getDate();
+        let y = now.getFullYear();
+        let m = now.getMonth() + 1;
+        // 10日を過ぎていれば「翌月分」の扱い
+        if (d > 10) {
+            m += 1;
+            if (m > 12) { m = 1; y += 1; }
+        }
+        return { y, m };
+    }, []);
+
+    const [year, setYear] = useState(() => getEffectiveYearMonth().y);
+    const [month, setMonth] = useState(() => getEffectiveYearMonth().m);
+
+    const goToAttendanceTab = useCallback((staffId?: string) => {
+        const { y, m } = getEffectiveYearMonth();
+        setYear(y);
+        setMonth(m);
+        if (staffId) setSelectedStaff(staffId);
+        setAdminTab("attendance");
+    }, [getEffectiveYearMonth]);
+    
     const [historyData, setHistoryData] = useState<HistoryData | null>(null);
     const [loading, setLoading] = useState(true);
     const [historyLoading, setHistoryLoading] = useState(false);
@@ -137,6 +161,9 @@ export default function AdminPanel({ user }: Props) {
     const [bulkProcessing, setBulkProcessing] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // フィルタリング用
+    const [filterType, setFilterType] = useState<string>("ALL");
 
     const [newStaff, setNewStaff] = useState({
         name: "", email: "", loginId: "", employeeNo: "",
@@ -196,7 +223,12 @@ export default function AdminPanel({ user }: Props) {
         setHistoryLoading(false);
     }, [selectedStaff, year, month]);
 
-    useEffect(() => { fetchHistory(); }, [fetchHistory]);
+    // 月の切り替え時に履歴を取得
+    useEffect(() => {
+        if (selectedStaff) {
+            fetchHistory();
+        }
+    }, [year, month, selectedStaff, fetchHistory]);
 
     async function handleBulkClockOut() {
         if (selectedStaffIds.length === 0) {
@@ -337,6 +369,86 @@ export default function AdminPanel({ user }: Props) {
         setEditSaving(false);
     }
 
+    async function handleRetireStaff(id: string, name: string) {
+        if (!confirm(`この職員を『退職』扱いにします。過去の打刻データは保持され、一覧から非表示になります。よろしいですか？`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`/api/admin/staff/${id}`, { 
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "RETIRED" })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`${name}さんを退職処理しました`);
+                if (staffDetailId === id) setStaffDetailId(null);
+                await fetchStaffList();
+            } else {
+                alert(data.error || "退職処理に失敗しました");
+            }
+        } catch {
+            alert("通信エラーが発生しました");
+        }
+    }
+
+    async function handleDeleteStaff(id: string, name: string) {
+        if (!confirm(`【警告】この職員と、それに紐づくすべての記録を『完全に抹消』します。復元はできません。サンプルデータの整理ですか？`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.success) {
+                alert(`${name}さんのデータを完全に抹消しました`);
+                if (staffDetailId === id) setStaffDetailId(null);
+                await fetchStaffList();
+            } else {
+                alert(data.error || "データ抹消に失敗しました");
+            }
+        } catch {
+            alert("通信エラーが発生しました");
+        }
+    }
+
+    async function handleBulkRetire() {
+        if (selectedStaffIds.length === 0) return;
+        if (!confirm(`選択した ${selectedStaffIds.length} 名の職員をまとめて『退職』扱いにします。よろしいですか？`)) {
+            return;
+        }
+        try {
+            for (const id of selectedStaffIds) {
+                await fetch(`/api/admin/staff/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "RETIRED" })
+                });
+            }
+            alert(`${selectedStaffIds.length}名の退職処理が完了しました`);
+            setSelectedStaffIds([]);
+            await fetchStaffList();
+        } catch {
+            alert("通信エラーが発生しました");
+        }
+    }
+
+    async function handleBulkDelete() {
+        if (selectedStaffIds.length === 0) return;
+        if (!confirm(`【警告】選択した ${selectedStaffIds.length} 名の職員と、それに紐づくすべての記録を『完全に抹消』します。よろしいですか？`)) {
+            return;
+        }
+        try {
+            for (const id of selectedStaffIds) {
+                await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
+            }
+            alert(`${selectedStaffIds.length}名のデータを完全に抹消しました`);
+            setSelectedStaffIds([]);
+            await fetchStaffList();
+        } catch {
+            alert("通信エラーが発生しました");
+        }
+    }
+
     async function handleExportStaff() {
         setExportLoading(true);
         try {
@@ -405,7 +517,7 @@ export default function AdminPanel({ user }: Props) {
                         color: adminTab === "attendance" ? "var(--text-inverse)" : "var(--text-secondary)",
                         transition: "all var(--transition-fast)",
                     }}
-                    onClick={() => setAdminTab("attendance")}
+                    onClick={() => goToAttendanceTab()}
                 >
                     📅 勤怠管理
                 </button>
@@ -488,7 +600,14 @@ export default function AdminPanel({ user }: Props) {
                         {/* 月ナビ */}
                         <div className={styles.monthNav}>
                             <button className={styles.navBtn} onClick={prevMonth}>◀</button>
-                            <span className={styles.monthLabel}>{year}年{month}月</span>
+                            <span className={styles.monthLabel}>
+                                {year}年{month}月
+                                {historyData && !("error" in historyData) && (historyData as any).period?.label && (
+                                    <span style={{ fontSize: "0.7em", color: "var(--text-secondary)", marginLeft: "8px", fontWeight: 400 }}>
+                                        ({(historyData as any).period.label})
+                                    </span>
+                                )}
+                            </span>
                             <button className={styles.navBtn} onClick={nextMonth}>▶</button>
                         </div>
                     </div>
@@ -699,25 +818,49 @@ export default function AdminPanel({ user }: Props) {
                                 >
                                     ◀ 職員一覧に戻る
                                 </button>
-                                <button
-                                    onClick={() => {
-                                        if (editMode) { setEditMode(false); }
-                                        else {
-                                            setEditStaff({ ...staffDetail, password: "" });
-                                            setEditMode(true);
-                                        }
-                                        setEditMessage(null);
-                                    }}
-                                    style={{
-                                        background: editMode ? "var(--color-danger-light)" : "var(--color-primary-light)",
-                                        border: "none", cursor: "pointer", borderRadius: "8px",
-                                        color: editMode ? "var(--color-danger)" : "var(--color-primary-dark)",
-                                        fontWeight: 600, fontSize: "var(--font-size-sm)",
-                                        padding: "var(--space-sm) var(--space-md)",
-                                    }}
-                                >
-                                    {editMode ? "✕ 編集キャンセル" : "✏️ 基本情報を編集"}
-                                </button>
+                                <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+                                    <button
+                                        onClick={() => handleRetireStaff(staffDetail.id, staffDetail.name)}
+                                        style={{
+                                            background: "none", border: "1px solid #ffeeba",
+                                            color: "#856404", cursor: "pointer", borderRadius: "8px",
+                                            fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
+                                        }}
+                                        title="退職（一覧から非表示になり、打刻ログは保持されます）"
+                                    >
+                                        🚪 退職
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteStaff(staffDetail.id, staffDetail.name)}
+                                        style={{
+                                            background: "rgba(220, 53, 69, 0.1)", border: "1px solid rgba(220, 53, 69, 0.3)",
+                                            color: "var(--color-danger)", cursor: "pointer", borderRadius: "8px",
+                                            fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
+                                        }}
+                                        title="完全削除（全ての関連データを含めて物理削除）"
+                                    >
+                                        ⚠️ データ抹消
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (editMode) { setEditMode(false); }
+                                            else {
+                                                setEditStaff({ ...staffDetail, password: "" });
+                                                setEditMode(true);
+                                            }
+                                            setEditMessage(null);
+                                        }}
+                                        style={{
+                                            background: editMode ? "var(--color-danger-light)" : "var(--color-primary-light)",
+                                            border: "none", cursor: "pointer", borderRadius: "8px",
+                                            color: editMode ? "var(--color-danger)" : "var(--color-primary-dark)",
+                                            fontWeight: 600, fontSize: "var(--font-size-sm)",
+                                            padding: "var(--space-sm) var(--space-md)",
+                                        }}
+                                    >
+                                        {editMode ? "✕ 編集キャンセル" : "✏️ 基本情報を編集"}
+                                    </button>
+                                </div>
                             </div>
 
                             {editMessage && (
@@ -907,7 +1050,7 @@ export default function AdminPanel({ user }: Props) {
                             <AdminStaffLeaveHistory staffId={staffDetail.id} />
 
                             <button
-                                onClick={() => { setSelectedStaff(staffDetail.id); setAdminTab("attendance"); }}
+                                onClick={() => goToAttendanceTab(staffDetail.id)}
                                 className="btn btn-primary"
                                 style={{ width: "100%", marginTop: "var(--space-lg)", padding: "var(--space-md)" }}
                             >
@@ -987,6 +1130,58 @@ export default function AdminPanel({ user }: Props) {
                                         {showAddForm ? "✕ 閉じる" : "➕ 職員追加"}
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* フィルタリングボタン */}
+                            <div style={{ display: "flex", gap: "var(--space-sm)", marginBottom: "var(--space-md)", paddingLeft: "4px", flexWrap: "wrap" }}>
+                                <button
+                                    onClick={() => setFilterType("ALL")}
+                                    style={{
+                                        padding: "var(--space-xs) var(--space-md)", borderRadius: "20px", border: "1px solid var(--color-primary)",
+                                        fontSize: "var(--font-size-sm)", fontWeight: 600, cursor: "pointer",
+                                        background: filterType === "ALL" ? "var(--color-primary)" : "white",
+                                        color: filterType === "ALL" ? "white" : "var(--color-primary)",
+                                        transition: "all 0.2s"
+                                    }}
+                                >
+                                    全員 ({staffList.length})
+                                </button>
+                                <button
+                                    onClick={() => setFilterType("REGULAR")}
+                                    style={{
+                                        padding: "var(--space-xs) var(--space-md)", borderRadius: "20px", border: "1px solid var(--color-primary)",
+                                        fontSize: "var(--font-size-sm)", fontWeight: 600, cursor: "pointer",
+                                        background: filterType === "REGULAR" ? "var(--color-primary)" : "white",
+                                        color: filterType === "REGULAR" ? "white" : "var(--color-primary)",
+                                        transition: "all 0.2s"
+                                    }}
+                                >
+                                    正規 ({staffList.filter(s => s.employmentType === "REGULAR").length})
+                                </button>
+                                <button
+                                    onClick={() => setFilterType("SHORT_TIME")}
+                                    style={{
+                                        padding: "var(--space-xs) var(--space-md)", borderRadius: "20px", border: "1px solid var(--color-primary)",
+                                        fontSize: "var(--font-size-sm)", fontWeight: 600, cursor: "pointer",
+                                        background: filterType === "SHORT_TIME" ? "var(--color-primary)" : "white",
+                                        color: filterType === "SHORT_TIME" ? "white" : "var(--color-primary)",
+                                        transition: "all 0.2s"
+                                    }}
+                                >
+                                    時短 ({staffList.filter(s => s.employmentType === "SHORT_TIME").length})
+                                </button>
+                                <button
+                                    onClick={() => setFilterType("PART_TIME")}
+                                    style={{
+                                        padding: "var(--space-xs) var(--space-md)", borderRadius: "20px", border: "1px solid var(--color-primary)",
+                                        fontSize: "var(--font-size-sm)", fontWeight: 600, cursor: "pointer",
+                                        background: filterType === "PART_TIME" ? "var(--color-primary)" : "white",
+                                        color: filterType === "PART_TIME" ? "white" : "var(--color-primary)",
+                                        transition: "all 0.2s"
+                                    }}
+                                >
+                                    パート ({staffList.filter(s => s.employmentType === "PART_TIME").length})
+                                </button>
                             </div>
 
                             {addMessage && (
@@ -1142,26 +1337,55 @@ export default function AdminPanel({ user }: Props) {
                                     </div>
                                 </form>
                             )}
-                            <div style={{ marginBottom: "var(--space-sm)", display: "flex", alignItems: "center", gap: "var(--space-sm)", paddingLeft: "4px" }}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={staffList.length > 0 && selectedStaffIds.length === staffList.length}
-                                    onChange={(e) => {
-                                        if (e.target.checked) {
-                                            setSelectedStaffIds(staffList.map(s => s.id));
-                                        } else {
-                                            setSelectedStaffIds([]);
-                                        }
-                                    }}
-                                    style={{ width: "20px", height: "20px", cursor: "pointer" }}
-                                />
-                                <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", fontWeight: 600 }}>
-                                    全選択 ({selectedStaffIds.length} 名選択中)
-                                </span>
+                            <div style={{ marginBottom: "var(--space-sm)", display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: "48px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", paddingLeft: "4px" }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={staffList.length > 0 && selectedStaffIds.length === staffList.length}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedStaffIds(staffList.map(s => s.id));
+                                            } else {
+                                                setSelectedStaffIds([]);
+                                            }
+                                        }}
+                                        style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                                    />
+                                    <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", fontWeight: 600 }}>
+                                        全選択 ({selectedStaffIds.length} 名選択中)
+                                    </span>
+                                </div>
+
+                                {selectedStaffIds.length > 0 && (
+                                    <div style={{ display: "flex", gap: "var(--space-sm)", animation: "fadeIn 0.2s ease" }}>
+                                        <button 
+                                            onClick={handleBulkRetire}
+                                            style={{
+                                                background: "#fff3cd", border: "1px solid #ffeeba",
+                                                color: "#856404", cursor: "pointer", borderRadius: "8px",
+                                                fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
+                                            }}
+                                        >
+                                            🚪 一括退職
+                                        </button>
+                                        <button 
+                                            onClick={handleBulkDelete}
+                                            style={{
+                                                background: "rgba(220, 53, 69, 0.1)", border: "1px solid rgba(220, 53, 69, 0.3)",
+                                                color: "var(--color-danger)", cursor: "pointer", borderRadius: "8px",
+                                                fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
+                                            }}
+                                        >
+                                            ⚠️ 一括データ抹消
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={styles.staffGrid}>
-                                {staffList.map((s) => {
+                                {staffList
+                                    .filter(s => filterType === "ALL" || s.employmentType === filterType)
+                                    .map((s) => {
                                     const today = new Date().toISOString().split('T')[0];
                                     const isMaternity = s.maternityLeaveStart && s.maternityLeaveStart <= today && (!s.expectedReturnDate || today <= s.expectedReturnDate);
                                     const isChildcare = s.childcareLeaveStart && s.childcareLeaveStart <= today && (!s.expectedReturnDate || today <= s.expectedReturnDate);

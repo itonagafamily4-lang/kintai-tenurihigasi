@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 export async function GET() {
     try {
         const staffList = await prisma.staff.findMany({
-            where: { isActive: true },
+            where: { isActive: true, status: { not: "RETIRED" } },
             select: {
                 id: true,
                 name: true,

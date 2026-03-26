@@ -139,26 +139,7 @@ export default function LoginPage({ onLogin, onKioskLogin, initialView = "LOGIN_
                             </form>
 
 
-                            
-                            <div className={styles.demoInfo} style={{ marginTop: '2rem' }}>
-                                <p className={styles.demoTitle}>🧪 テスト用アカウント</p>
-                                <div className={styles.demoAccounts}>
-                                    <button
-                                        type="button"
-                                        className={styles.demoBtn}
-                                        onClick={() => { setLoginId("admin@example.com"); setPassword("password123"); }}
-                                    >
-                                        👑 管理者
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.demoBtn}
-                                        onClick={() => { setLoginId("yamada@example.com"); setPassword("password123"); }}
-                                    >
-                                        👩 正規職員
-                                    </button>
-                                </div>
-                            </div>
+                            <div style={{ marginTop: '2rem' }}></div>
                         </div>
                     ) : (
                         <div className={styles.kioskWrapper}>

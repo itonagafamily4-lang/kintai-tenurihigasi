@@ -18,10 +18,11 @@ export async function GET() {
             return NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 });
         }
 
-        const staff = await prisma.staff.findMany({
-            where: { orgId: session.orgId, isActive: true },
+        const staff = await (prisma.staff.findMany({
+            where: { orgId: session.orgId, isActive: true, status: { not: "RETIRED" } },
             select: {
                 id: true,
+                status: true,
                 employeeNo: true,
                 name: true,
                 loginId: true,
@@ -51,7 +52,16 @@ export async function GET() {
                     take: 1,
                 },
             },
-            orderBy: { employeeNo: "asc" },
+        }) as any);
+
+        // 職員番号を数値として考慮してソート (SQLiteの文字列ソートを補正)
+        staff.sort((a: any, b: any) => {
+            const numA = parseInt(a.employeeNo, 10);
+            const numB = parseInt(b.employeeNo, 10);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+            }
+            return a.employeeNo.localeCompare(b.employeeNo, undefined, { numeric: true });
         });
 
         return NextResponse.json({ staff });
