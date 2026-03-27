@@ -47,6 +47,9 @@ export async function GET() {
                 expectedReturnDate: true,
                 leaveBalances: {
                     select: {
+                        fiscalYear: true,
+                        grantedDays: true,
+                        usedDays: true,
                         remainingDays: true,
                     },
                     orderBy: { fiscalYear: "desc" },

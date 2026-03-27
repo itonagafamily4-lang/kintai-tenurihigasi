@@ -35,7 +35,12 @@ interface StaffMember {
     childcareLeaveStart: string | null;
     childcareLeaveEnd: string | null;
     expectedReturnDate: string | null;
-    leaveBalances?: { remainingDays: number }[];
+    leaveBalances?: { 
+        fiscalYear: number;
+        grantedDays: number;
+        usedDays: number;
+        remainingDays: number;
+    }[];
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -153,6 +158,7 @@ export default function AdminPanel({ user }: Props) {
     const [editSaving, setEditSaving] = useState(false);
     const [exportLoading, setExportLoading] = useState(false);
     const [importLoading, setImportLoading] = useState(false);
+    const [showLeaveSummary, setShowLeaveSummary] = useState(false);
 
     // 一斉退勤用
     const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
@@ -160,6 +166,11 @@ export default function AdminPanel({ user }: Props) {
     const [bulkClockOutTime, setBulkClockOutTime] = useState("");
     const [bulkClockOutMemo, setBulkClockOutMemo] = useState("");
     const [bulkProcessing, setBulkProcessing] = useState(false);
+
+    // 一斉出勤用
+    const [showBulkClockInModal, setShowBulkClockInModal] = useState(false);
+    const [bulkClockInTime, setBulkClockInTime] = useState("");
+    const [bulkClockInMemo, setBulkClockInMemo] = useState("");
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -183,7 +194,8 @@ export default function AdminPanel({ user }: Props) {
         const hh = String(now.getHours()).padStart(2, '0');
         const mm = String(now.getMinutes()).padStart(2, '0');
         setBulkClockOutTime(`${hh}:${mm}`);
-    }, [showBulkClockOutModal]);
+        setBulkClockInTime(`${hh}:${mm}`);
+    }, [showBulkClockOutModal, showBulkClockInModal]);
 
     const [fetchError, setFetchError] = useState<string | null>(null);
     const fetchStaffList = useCallback(async () => {
@@ -254,6 +266,42 @@ export default function AdminPanel({ user }: Props) {
                 setShowBulkClockOutModal(false);
                 setSelectedStaffIds([]);
                 setBulkClockOutMemo("");
+                if (adminTab === "attendance" && selectedStaff) {
+                    fetchHistory();
+                }
+            } else {
+                alert(data.error || "エラーが発生しました");
+            }
+        } catch (error) {
+            alert("通信エラーが発生しました");
+        } finally {
+            setBulkProcessing(false);
+        }
+    }
+
+    async function handleBulkClockIn() {
+        if (selectedStaffIds.length === 0) {
+            alert("職員が選択されていません");
+            return;
+        }
+        setBulkProcessing(true);
+        try {
+            const res = await fetch("/api/admin/attendance/bulk-clock-in", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    staffIds: selectedStaffIds,
+                    clockInTime: bulkClockInTime,
+                    memo: bulkClockInMemo,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const summary = data.summary;
+                alert(`一斉出勤打刻が完了しました。\n✅ 成功: ${summary.success}名\n⏭️ スキップ: ${summary.skipped}名\n⚠️ エラー: ${summary.error}名`);
+                setShowBulkClockInModal(false);
+                setSelectedStaffIds([]);
+                setBulkClockInMemo("");
                 if (adminTab === "attendance" && selectedStaff) {
                     fetchHistory();
                 }
@@ -1112,6 +1160,19 @@ export default function AdminPanel({ user }: Props) {
                                     </button>
                                     <button
                                         className="btn btn-secondary"
+                                        style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)", background: "var(--color-primary-light)", color: "var(--color-primary-dark)" }}
+                                        onClick={() => {
+                                            if (selectedStaffIds.length === 0) {
+                                                alert("打刻する職員をチェックボックスで選択してください");
+                                                return;
+                                            }
+                                            setShowBulkClockInModal(true);
+                                        }}
+                                    >
+                                        🕒 一斉出勤打刻
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary"
                                         style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)", background: "var(--color-danger-light)", color: "var(--color-danger)" }}
                                         onClick={() => {
                                             if (selectedStaffIds.length === 0) {
@@ -1124,9 +1185,19 @@ export default function AdminPanel({ user }: Props) {
                                         🕒 一斉退勤打刻
                                     </button>
                                     <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)", color: "var(--color-primary-dark)", border: "1px solid var(--color-primary-light)" }}
+                                        onClick={() => setShowLeaveSummary(!showLeaveSummary)}
+                                    >
+                                        {showLeaveSummary ? "✕ 一覧を閉じる" : "🌴 休暇状況一覧"}
+                                    </button>
+                                    <button
                                         className="btn btn-primary"
                                         style={{ padding: "var(--space-xs) var(--space-md)", fontSize: "var(--font-size-sm)" }}
-                                        onClick={() => setShowAddForm(!showAddForm)}
+                                        onClick={() => {
+                                            setShowAddForm(!showAddForm);
+                                            setShowLeaveSummary(false);
+                                        }}
                                     >
                                         {showAddForm ? "✕ 閉じる" : "➕ 職員追加"}
                                     </button>
@@ -1338,6 +1409,47 @@ export default function AdminPanel({ user }: Props) {
                                     </div>
                                 </form>
                             )}
+
+                            {/* 休暇状況サマリー表示 */}
+                            {showLeaveSummary && (
+                                <div style={{ 
+                                    background: "var(--bg-card)", border: "var(--border-light)", 
+                                    borderRadius: "var(--radius-lg)", padding: "var(--space-lg)", 
+                                    marginBottom: "var(--space-lg)", boxShadow: "var(--shadow-sm)",
+                                    overflowX: "auto"
+                                }}>
+                                    <h3 style={{ fontSize: "var(--font-size-base)", fontWeight: 700, marginBottom: "var(--space-md)", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+                                        🌴 職員別 休暇状況一覧 (今年度)
+                                    </h3>
+                                    <table className={styles.table} style={{ fontSize: "0.85rem" }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ whiteSpace: "nowrap" }}>No.</th>
+                                                <th style={{ whiteSpace: "nowrap" }}>名前</th>
+                                                <th style={{ whiteSpace: "nowrap" }}>形態</th>
+                                                <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>付与日数</th>
+                                                <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>利用日数</th>
+                                                <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>残日数</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {staffList.map(s => {
+                                                const bal = s.leaveBalances?.[0];
+                                                return (
+                                                    <tr key={s.id}>
+                                                        <td>{s.employeeNo}</td>
+                                                        <td style={{ fontWeight: 600 }}>{s.name}</td>
+                                                        <td>{EMPLOYMENT_LABELS[s.employmentType]}</td>
+                                                        <td style={{ textAlign: "right" }}>{bal ? `${bal.grantedDays}日` : "—"}</td>
+                                                        <td style={{ textAlign: "right", color: "var(--color-danger)" }}>{bal ? `${bal.usedDays}日` : "—"}</td>
+                                                        <td style={{ textAlign: "right", fontWeight: 700, color: "var(--color-primary)" }}>{bal ? `${bal.remainingDays}日` : "—"}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                             <div style={{ marginBottom: "var(--space-sm)", display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: "48px" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", paddingLeft: "4px" }}>
                                     <input 
@@ -1359,26 +1471,7 @@ export default function AdminPanel({ user }: Props) {
 
                                 {selectedStaffIds.length > 0 && (
                                     <div style={{ display: "flex", gap: "var(--space-sm)", animation: "fadeIn 0.2s ease" }}>
-                                        <button 
-                                            onClick={handleBulkRetire}
-                                            style={{
-                                                background: "#fff3cd", border: "1px solid #ffeeba",
-                                                color: "#856404", cursor: "pointer", borderRadius: "8px",
-                                                fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
-                                            }}
-                                        >
-                                            🚪 一括退職
-                                        </button>
-                                        <button 
-                                            onClick={handleBulkDelete}
-                                            style={{
-                                                background: "rgba(220, 53, 69, 0.1)", border: "1px solid rgba(220, 53, 69, 0.3)",
-                                                color: "var(--color-danger)", cursor: "pointer", borderRadius: "8px",
-                                                fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
-                                            }}
-                                        >
-                                            ⚠️ 一括データ抹消
-                                        </button>
+                                        {/* 一括退職・抹消ボタンは個別の詳細画面から行う運用とするため削除 */}
                                     </div>
                                 )}
                             </div>
@@ -1444,7 +1537,7 @@ export default function AdminPanel({ user }: Props) {
                                                         No.{s.employeeNo} · {EMPLOYMENT_LABELS[s.employmentType]} 
                                                         {s.jobTitle ? ` · ${s.jobTitle}` : ""}
                                                         {s.assignedClass ? ` · ${s.assignedClass}` : ""}
-                                                        {' · '}有休: {s.leaveBalances?.[0] ? `${s.leaveBalances[0].remainingDays}日` : "—"}
+                                                         {' · '}有休: {s.leaveBalances?.[0] ? `${s.leaveBalances[0].usedDays}/${s.leaveBalances[0].grantedDays} (残${s.leaveBalances[0].remainingDays})日` : "—"}
                                                     </div>
                                                 </div>
                                                 <span style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-lg)" }}>›</span>
@@ -1520,6 +1613,54 @@ export default function AdminPanel({ user }: Props) {
                                 disabled={bulkProcessing}
                             >
                                 {bulkProcessing ? "処理中..." : "✅ 一斉打刻を実行"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 一斉出勤打刻モーダル */}
+            {showBulkClockInModal && (
+                <div className="modal-overlay" onClick={() => setShowBulkClockInModal(false)}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "400px" }}>
+                        <div className="modal-header">
+                            <h2 style={{ fontSize: "1.2rem", fontWeight: "bold" }}>🕒 一斉出勤打刻</h2>
+                            <button className="modal-close" onClick={() => setShowBulkClockInModal(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "var(--space-md)" }}>
+                                選択した {selectedStaffIds.length} 名の出勤記録を一括で行います。<br/>
+                                <span style={{ color: "var(--color-danger)", fontSize: "0.8rem" }}>※今日の打刻がまだ無い職員が対象です。</span>
+                            </p>
+                            
+                            <div className="input-group">
+                                <label>出勤時刻</label>
+                                <input 
+                                    type="time" 
+                                    className="input"
+                                    value={bulkClockInTime}
+                                    onChange={(e) => setBulkClockInTime(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="input-group" style={{ marginTop: "var(--space-md)" }}>
+                                <label>備考（例：交通機関の遅延など）</label>
+                                <input 
+                                    type="text" 
+                                    className="input"
+                                    placeholder="一括入力する理由"
+                                    value={bulkClockInMemo}
+                                    onChange={(e) => setBulkClockInMemo(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ marginTop: "var(--space-lg)" }}>
+                            <button 
+                                className="btn btn-primary w-full"
+                                onClick={handleBulkClockIn}
+                                disabled={bulkProcessing}
+                            >
+                                {bulkProcessing ? "処理中..." : "✅ 一斉出勤を実行"}
                             </button>
                         </div>
                     </div>
