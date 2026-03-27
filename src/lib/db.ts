@@ -304,8 +304,10 @@ function createModelProxy(modelName: string) {
         postFilters = result.postFilters;
       }
 
-      // postFilterがある場合は多めに取得してフィルタリング
-      const snapshot = await query.limit(500).get();
+      // postFilterがない場合は1件だけ取得して即返す（最大の最適化）
+      // postFilterがある場合は多めに取得してフィルタリング（ただし上限を200に抑える）
+      const fetchLimit = postFilters.length > 0 ? 200 : 1;
+      const snapshot = await query.limit(fetchLimit).get();
       if (snapshot.empty) return null;
       
       let docs = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));

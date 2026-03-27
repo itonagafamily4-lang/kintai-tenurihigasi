@@ -47,6 +47,7 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
     const [attendance, setAttendance] = useState<Attendance | null>(null);
     const [todayLeave, setTodayLeave] = useState<any>(null);
     const [missingAlert, setMissingAlert] = useState<{ hasMissing: boolean, date?: string, message?: string } | null>(null);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [clockLoading, setClockLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showClockOutModal, setShowClockOutModal] = useState(false);
@@ -102,6 +103,8 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
             }
         } catch {
             // エラー処理
+        } finally {
+            setIsInitialLoading(false);
         }
     }, []);
 
@@ -233,7 +236,46 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
         <div className={styles.container}>
 
             <main className={styles.main}>
-                {/* アラートバナー */}
+                {/* スケルトン: 初回ロード中 */}
+                {isInitialLoading && (
+                    <div style={{ animation: "fadeIn 0.3s ease" }}>
+                        {/* 時刻スケルトン */}
+                        <div style={{
+                            height: 80, borderRadius: "var(--radius-lg)",
+                            background: "linear-gradient(90deg, #f0e8ef 25%, #fce4f0 50%, #f0e8ef 75%)",
+                            backgroundSize: "200% 100%",
+                            animation: "skeletonShimmer 1.5s infinite",
+                            marginBottom: "var(--space-lg)"
+                        }} />
+                        {/* 打刻ボタンスケルトン */}
+                        <div style={{
+                            height: 120, borderRadius: "var(--radius-lg)",
+                            background: "linear-gradient(90deg, #f0e8ef 25%, #fce4f0 50%, #f0e8ef 75%)",
+                            backgroundSize: "200% 100%",
+                            animation: "skeletonShimmer 1.5s infinite 0.2s",
+                            marginBottom: "var(--space-lg)"
+                        }} />
+                        {/* カードスケルトン */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-md)", marginBottom: "var(--space-lg)" }}>
+                            {[0, 1, 2, 3].map(i => (
+                                <div key={i} style={{
+                                    height: 80, borderRadius: "var(--radius-md)",
+                                    background: "linear-gradient(90deg, #f0e8ef 25%, #fce4f0 50%, #f0e8ef 75%)",
+                                    backgroundSize: "200% 100%",
+                                    animation: `skeletonShimmer 1.5s infinite ${i * 0.1}s`,
+                                }} />
+                            ))}
+                        </div>
+                        <style>{`
+                            @keyframes skeletonShimmer {
+                                0% { background-position: 200% 0; }
+                                100% { background-position: -200% 0; }
+                            }
+                        `}</style>
+                    </div>
+                )}
+                {/* ロード完了後のメインコンテンツ */}
+                {!isInitialLoading && (<>
                 {missingAlert?.hasMissing && (
                     <div
                         className="alert"
@@ -409,6 +451,7 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
                         )}
                     </div>
                 )}
+                </>)}
             </main>
 
             {/* 退勤確認モーダル */}

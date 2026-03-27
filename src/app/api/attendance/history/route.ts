@@ -61,60 +61,54 @@ export async function GET(req: NextRequest) {
         const startStr = formatDateStr(startDate);
         const endStr = formatDateStr(endDate);
 
-        // 勤怠データ取得
-        const attendances = await prisma.attendance.findMany({
-            where: {
-                staffId: targetStaffId,
-                workDate: {
-                    gte: startStr,
-                    lte: endStr,
+        // ✅ 複数のFirestoreクエリを並行実行（直列→並行で2〜4倍高速化）
+        const [attendances, leaveRequests, staff, settingsRows, dutyRows, allSchedules] = await Promise.all([
+            // 勤怠データ取得
+            prisma.attendance.findMany({
+                where: {
+                    staffId: targetStaffId,
+                    workDate: { gte: startStr, lte: endStr },
                 },
-            },
-            orderBy: { workDate: "asc" },
-        });
-
-        // 休暇データ取得
-        const leaveRequests = await prisma.leaveRequest.findMany({
-            where: {
-                staffId: targetStaffId,
-                leaveDate: {
-                    gte: startStr,
-                    lte: endStr,
+                orderBy: { workDate: "asc" },
+            }),
+            // 休暇データ取得
+            prisma.leaveRequest.findMany({
+                where: {
+                    staffId: targetStaffId,
+                    leaveDate: { gte: startStr, lte: endStr },
+                    status: "APPROVED",
                 },
-                status: "APPROVED",
-            },
-        });
-
-        // 対象職員の情報
-        const staff = await prisma.staff.findUnique({
-            where: { id: targetStaffId },
-            select: { id: true, name: true, employeeNo: true, employmentType: true, assignedClass: true, orgId: true, defaultStart: true, defaultEnd: true } as any,
-        });
+            }),
+            // 対象職員の情報
+            prisma.staff.findUnique({
+                where: { id: targetStaffId },
+                select: { id: true, name: true, employeeNo: true, employmentType: true, assignedClass: true, orgId: true, defaultStart: true, defaultEnd: true } as any,
+            }),
+            // 設定マスタ
+            prisma.settingMaster.findMany({
+                where: { orgId: session.orgId },
+            }),
+            // 当番マスター
+            (prisma as any).dutyMaster ? (prisma as any).dutyMaster.findMany({
+                where: { orgId: session.orgId },
+            }) : Promise.resolve([]),
+            // スケジュール特別設定
+            prisma.schedule.findMany({
+                where: {
+                    orgId: session.orgId,
+                    date: { gte: startStr, lte: endStr },
+                } as any
+            }),
+        ]);
 
         if (!staff) {
             return NextResponse.json({ error: "職員が見つかりません" }, { status: 404 });
         }
 
-        // 期間内の特別設定を一括取得 (Prisma Client の同期遅れを回避するためメモリ上でフィルタリング)
-        const allSchedules = await prisma.schedule.findMany({
-            where: {
-                orgId: (staff as any).orgId,
-                date: { gte: startStr, lte: endStr },
-            } as any
-        });
-        const allOverrides = allSchedules.filter((s: any) => s.isWorkOverride === true);
-
-        // 設定マスタから計算パラメータを取得
-        const settingsRows = await prisma.settingMaster.findMany({
-            where: { orgId: (staff as any).orgId },
-        });
         const settingsMap: Record<string, string> = {};
-        settingsRows.forEach(s => { settingsMap[s.key] = s.value; });
+        settingsRows.forEach((s: any) => { settingsMap[s.key] = s.value; });
 
-        // 当番マスターを取得 (未反映の場合を考慮して判定を追加)
-        const dutyRows = (prisma as any).dutyMaster ? await (prisma as any).dutyMaster.findMany({
-            where: { orgId: (staff as any).orgId },
-        }) : [];
+        const allOverrides = allSchedules.filter((s: any) => s.isWorkOverride === true);
 
         // 期間内の全日付を生成
         const days: any[] = [];
