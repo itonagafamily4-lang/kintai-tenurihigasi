@@ -140,14 +140,14 @@ export async function POST(req: Request) {
             }
 
             // Calculate carried over from previous year (targetYear - 1)
-            const prevBalance = staff.leaveBalances.find(b => b.fiscalYear === targetYear - 1);
+            const prevBalance = staff.leaveBalances.find((b: any) => b.fiscalYear === targetYear - 1);
             if (prevBalance && prevBalance.remainingDays > 0) {
                 // 【重要】時効（2年）のため、繰り越せるのは前年の「新規付与分」が上限
                 carriedOverDays = Math.min(prevBalance.remainingDays, prevBalance.grantedDays);
             }
 
             // 現在の年度に既に付与実績がある場合、使用済み日数を引き継ぐ
-            const currentBalance = staff.leaveBalances.find(b => b.fiscalYear === targetYear);
+            const currentBalance = staff.leaveBalances.find((b: any) => b.fiscalYear === targetYear);
             const currentUsedDays = currentBalance ? currentBalance.usedDays : 0;
             const currentTimeLeaveUsedHours = currentBalance ? currentBalance.timeLeaveUsedHours : 0;
 

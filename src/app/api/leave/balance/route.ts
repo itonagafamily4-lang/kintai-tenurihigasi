@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function GET() {
     try {
@@ -13,8 +14,7 @@ export async function GET() {
         const session = JSON.parse(sessionCookie.value);
 
         // 現在の年度を計算（4月始まり）
-        const now = new Date();
-        const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const fiscalYear = getFiscalYear(new Date());
 
         // 有休残高を取得
         let balance = await prisma.leaveBalance.findUnique({

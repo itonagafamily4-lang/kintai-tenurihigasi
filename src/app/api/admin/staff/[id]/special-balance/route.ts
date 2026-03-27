@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -14,8 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const resolvedParams = await params;
         const staffId = resolvedParams.id;
 
-        const now = new Date();
-        const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const fiscalYear = getFiscalYear(new Date());
 
         const specialBalances = await prisma.specialLeaveBalance.findMany({
             where: { staffId, fiscalYear },
@@ -42,8 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const body = await req.json();
         const { leaveType, totalDays } = body;
 
-        const now = new Date();
-        const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const fiscalYear = getFiscalYear(new Date());
 
         const existing = await prisma.specialLeaveBalance.findUnique({
             where: {

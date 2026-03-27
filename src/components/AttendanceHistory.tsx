@@ -99,8 +99,9 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
         const dNum = now.getDate();
         let y = now.getFullYear();
         let m = now.getMonth() + 1;
-        // 10日締めなので11日からは翌月分
-        if (dNum > 10) {
+        // 締め日を過ぎていれば「翌月分」の扱い
+        const closingDay = user.closingDay || 10;
+        if (dNum > closingDay) {
             m += 1;
             if (m > 12) { m = 1; y += 1; }
         }

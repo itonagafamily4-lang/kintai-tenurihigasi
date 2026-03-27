@@ -172,6 +172,19 @@ export function getClosingPeriod(
 }
 
 /**
+ * 日本の年度（4月1日〜3月31日）を計算
+ * @param dateStr "YYYY-MM-DD"形式の文字列またはDateオブジェクト
+ * @returns 年度(number)
+ */
+export function getFiscalYear(dateStr: string | Date): number {
+  const d = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  const month = d.getMonth() + 1; // 1-12
+  const year = d.getFullYear();
+  // 4月以降なら当年、3月以前なら前年が年度
+  return month >= 4 ? year : year - 1;
+}
+
+/**
  * 感染症特休の種別判定
  * 3日まで特休、4日目以降は有休に自動切替
  */

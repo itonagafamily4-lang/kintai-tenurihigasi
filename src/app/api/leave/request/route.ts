@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { isHolidayOrSunday } from "@/lib/holidays";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function POST(req: NextRequest) {
     try {
@@ -72,8 +73,7 @@ export async function POST(req: NextRequest) {
 
         // 有休残高・時間有休チェック（全日・半日・時間の場合）
         if (leaveType === "FULL_DAY" || leaveType === "HALF_DAY" || leaveType === "HOURLY") {
-            const now = new Date();
-            const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+            const fiscalYear = getFiscalYear(leaveDate);
             const balance = await prisma.leaveBalance.findUnique({
                 where: {
                     staffId_fiscalYear: {

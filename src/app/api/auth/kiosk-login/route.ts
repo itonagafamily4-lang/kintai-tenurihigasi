@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
             orgName: staff.org.name,
             defaultStart: staff.defaultStart,
             defaultEnd: staff.defaultEnd,
+            closingDay: staff.org.closingDay,
             isKiosk: true, // 打刻ログインフラグ
         };
 

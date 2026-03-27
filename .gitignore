@@ -46,3 +46,6 @@ next-env.d.ts
 # database
 # *.db (データベースを同期対象に含めるためコメントアウト)
 # *.db-journal
+
+# Firebase
+firebase-key*.json

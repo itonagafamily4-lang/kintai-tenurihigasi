@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.2",
@@ -14,6 +15,7 @@
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "date-fns": "^4.1.0",
+    "firebase-admin": "^13.7.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "prisma": "^7.4.2",

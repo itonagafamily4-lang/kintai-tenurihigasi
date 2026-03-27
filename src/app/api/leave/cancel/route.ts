@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function POST(req: NextRequest) {
     try {
@@ -38,10 +39,21 @@ export async function POST(req: NextRequest) {
             // ステータスがAPPROVEDだった場合は有休残高を戻し、関連する勤怠記録を消す
             if (leaveRequest.status === "APPROVED") {
                 const leaveType = leaveRequest.leaveType;
-                if (leaveType === "FULL_DAY" || leaveType === "HALF_DAY") {
-                    const now = new Date();
-                    const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-                    const deduction = leaveType === "FULL_DAY" ? 1 : 0.5;
+                if (leaveType === "FULL_DAY" || leaveType === "HALF_DAY" || leaveType === "HOURLY") {
+                    const fiscalYear = getFiscalYear(leaveRequest.leaveDate);
+                    
+                    const staff = await tx.staff.findUnique({ where: { id: leaveRequest.staffId } });
+                    const standardHours = staff?.standardWorkHours || 8.0;
+                    const hourUnit = Math.ceil(standardHours);
+
+                    let deduction = 0;
+                    let decrementTimeLeave = 0;
+                    if (leaveType === "FULL_DAY") deduction = 1;
+                    else if (leaveType === "HALF_DAY") deduction = 0.5;
+                    else if (leaveType === "HOURLY" && leaveRequest.leaveHours) {
+                        deduction = leaveRequest.leaveHours / hourUnit;
+                        decrementTimeLeave = leaveRequest.leaveHours;
+                    }
 
                     const balance = await tx.leaveBalance.findUnique({
                         where: {
@@ -58,6 +70,7 @@ export async function POST(req: NextRequest) {
                             data: {
                                 usedDays: { decrement: deduction },
                                 remainingDays: { increment: deduction },
+                                ...(leaveType === "HOURLY" ? { timeLeaveUsedHours: { decrement: decrementTimeLeave } } : {})
                             },
                         });
                     }
@@ -73,19 +86,29 @@ export async function POST(req: NextRequest) {
                     },
                 });
 
-                if (existingAttendance && leaveType === "FULL_DAY") {
-                    if (existingAttendance.clockIn === null && existingAttendance.clockOut === null) {
-                        // 打刻されていなければレコードそのものを消す
-                        await tx.attendance.delete({
-                            where: { id: existingAttendance.id }
-                        });
-                    } else {
-                        // 打刻されている場合は休暇を取り消して通常の勤務と同じように戻す
+                if (existingAttendance) {
+                    if (leaveType === "FULL_DAY") {
+                        if (existingAttendance.clockIn === null && existingAttendance.clockOut === null) {
+                            // 打刻されていなければレコードそのものを消す
+                            await tx.attendance.delete({
+                                where: { id: existingAttendance.id }
+                            });
+                        } else {
+                            // 打刻されている場合は休暇を取り消して通常の勤務と同じように戻す
+                            await tx.attendance.update({
+                                where: { id: existingAttendance.id },
+                                data: {
+                                    dayType: "WORK",
+                                    memo: existingAttendance.memo ? existingAttendance.memo.replace(/有休（.*?）|特休|病休/g, "").trim() : null
+                                }
+                            });
+                        }
+                    } else if (leaveType === "HOURLY") {
+                        // 時間有休分を減らす
                         await tx.attendance.update({
                             where: { id: existingAttendance.id },
                             data: {
-                                dayType: "WORK",
-                                memo: existingAttendance.memo ? existingAttendance.memo.replace(/有休（.*?）|特休|病休/g, "").trim() : null
+                                hourlyLeave: { decrement: leaveRequest.leaveHours || 0 }
                             }
                         });
                     }

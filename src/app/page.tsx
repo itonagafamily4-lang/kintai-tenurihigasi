@@ -18,6 +18,7 @@ export interface UserSession {
   orgName: string;
   defaultStart: string;
   defaultEnd: string;
+  closingDay: number;
   isKiosk?: boolean;
 }
 

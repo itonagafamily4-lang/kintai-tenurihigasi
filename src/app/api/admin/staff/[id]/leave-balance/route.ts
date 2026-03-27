@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -14,8 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const resolvedParams = await params;
         const staffId = resolvedParams.id;
 
-        const now = new Date();
-        const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const fiscalYear = getFiscalYear(new Date());
 
         const balance = await prisma.leaveBalance.findUnique({
             where: { staffId_fiscalYear: { staffId, fiscalYear } },
@@ -53,8 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "無効な日数です" }, { status: 400 });
         }
 
-        const now = new Date();
-        const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const fiscalYear = getFiscalYear(new Date());
 
         const existing = await prisma.leaveBalance.findUnique({
             where: { staffId_fiscalYear: { staffId, fiscalYear } }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import * as bcrypt from "bcryptjs";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function GET() {
     try {
@@ -152,8 +153,7 @@ export async function POST(req: NextRequest) {
         });
 
         // 有休残高を自動作成
-        const now = new Date();
-        const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        const fiscalYear = getFiscalYear(new Date());
         const totalDays = (employmentType || "REGULAR") === "PART_TIME" ? 10 : 20;
 
         await prisma.leaveBalance.create({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getFiscalYear } from "@/lib/engine/calculator";
 
 export async function POST(req: NextRequest) {
     try {
@@ -69,8 +70,7 @@ export async function POST(req: NextRequest) {
             if (action === "APPROVED") {
                 const leaveType = leaveRequest.leaveType;
                 if (leaveType === "FULL_DAY" || leaveType === "HALF_DAY" || leaveType === "HOURLY") {
-                    const now = new Date();
-                    const fiscalYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+                    const fiscalYear = getFiscalYear(leaveRequest.leaveDate);
 
                     const staff = await tx.staff.findUnique({ where: { id: leaveRequest.staffId } });
                     const standardHours = staff?.standardWorkHours || 8.0;
