@@ -10,6 +10,7 @@ interface GrantPreview {
     grantTypeLabel: string;
     grantedDays: number;
     carriedOverDays: number;
+    carriedOverHours: number;
     totalDays: number;
 }
 
@@ -147,7 +148,10 @@ export default function AdminAnnualLeaveGrant() {
                                             </span>
                                         </td>
                                         <td style={{ padding: "var(--space-sm)", textAlign: "right", fontWeight: "bold", color: "#2E7D32" }}>{d.grantedDays > 0 ? `+${d.grantedDays}日` : "0日"}</td>
-                                        <td style={{ padding: "var(--space-sm)", textAlign: "right", color: "var(--text-secondary)" }}>{d.carriedOverDays > 0 ? `${d.carriedOverDays}日` : "0日"}</td>
+                                        <td style={{ padding: "var(--space-sm)", textAlign: "right", color: "var(--text-secondary)" }}>
+                                            {d.carriedOverDays > 0 ? `${d.carriedOverDays}日` : "0日"}
+                                            {d.carriedOverHours > 0 && <span style={{ color: "var(--color-primary)", marginLeft: "4px" }}>+{d.carriedOverHours}h</span>}
+                                        </td>
                                         <td style={{ padding: "var(--space-sm)", textAlign: "right", fontWeight: "bold", fontSize: "1.1em", color: "var(--color-primary)" }}>{d.totalDays}日</td>
                                     </tr>
                                 ))}

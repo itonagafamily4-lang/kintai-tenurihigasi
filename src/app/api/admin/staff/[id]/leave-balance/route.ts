@@ -45,10 +45,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const resolvedParams = await params;
         const staffId = resolvedParams.id;
         const body = await req.json();
-        const { grantedDays, carriedOverDays } = body;
+        const { grantedDays, carriedOverDays, carriedOverHours: rawCarriedOverHours } = body;
+
+        // 時間有休の繰り上げ処理: 8時間以上 → 1日に繰り上げ
+        let parsedCarriedOverHours = parseFloat(rawCarriedOverHours || "0");
+        let adjustedCarriedOverDays = parseFloat(carriedOverDays);
+        if (parsedCarriedOverHours >= 8) {
+            const extraDays = Math.floor(parsedCarriedOverHours / 8);
+            adjustedCarriedOverDays += extraDays;
+            parsedCarriedOverHours = parsedCarriedOverHours % 8;
+        }
+        parsedCarriedOverHours = Math.max(0, Math.min(7, Math.round(parsedCarriedOverHours)));
 
         const newGrantedDays = parseFloat(grantedDays);
-        const newCarriedOverDays = parseFloat(carriedOverDays);
+        const newCarriedOverDays = adjustedCarriedOverDays;
         if (isNaN(newGrantedDays) || newGrantedDays < 0 || isNaN(newCarriedOverDays) || newCarriedOverDays < 0) {
             return NextResponse.json({ error: "無効な日数です" }, { status: 400 });
         }
@@ -68,6 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 data: {
                     grantedDays: newGrantedDays,
                     carriedOverDays: newCarriedOverDays,
+                    carriedOverHours: parsedCarriedOverHours,
                     totalDays,
                     remainingDays: Math.max(0, remainingDays),
                 }
@@ -80,6 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                     fiscalYear,
                     grantedDays: newGrantedDays,
                     carriedOverDays: newCarriedOverDays,
+                    carriedOverHours: parsedCarriedOverHours,
                     totalDays,
                     usedDays: 0,
                     remainingDays: totalDays,

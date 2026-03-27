@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { v4 as uuidv4 } from 'uuid';
+import { getJstDateString } from '@/lib/date-utils';
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '出勤時刻が指定されていません' }, { status: 400 });
     }
 
-    const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+    const todayStr = getJstDateString();
 
     const results = [];
     

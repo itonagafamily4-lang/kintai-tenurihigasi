@@ -71,12 +71,23 @@ export async function GET() {
             hourly: leaveRequests.filter((l) => l.leaveType === "HOURLY" && l.status === "APPROVED")
                 .reduce((sum, l) => sum + (l.leaveHours || 0), 0),
             sickLeave: leaveRequests.filter((l) => l.leaveType === "SPECIAL_SICK" && l.status === "APPROVED").length,
+            nursingLeave: leaveRequests.filter((l) => l.leaveType === "NURSING" && l.status === "APPROVED").length,
+            careLeave: leaveRequests.filter((l) => l.leaveType === "CARE" && l.status === "APPROVED").length,
             pending: leaveRequests.filter((l) => l.status === "PENDING").length,
         };
+
+        // 特別休暇の残高を取得
+        const specialBalances = await prisma.specialLeaveBalance.findMany({
+            where: {
+                staffId: session.id,
+                fiscalYear,
+            }
+        });
 
         return NextResponse.json({
             balance,
             breakdown,
+            specialBalances,
             fiscalYear,
         });
     } catch (error) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { calculateAttendance, getEffectiveSchedule, type EmploymentType } from '@/lib/engine/calculator';
+import { getJstDateString, getJstTime } from '@/lib/date-utils';
 
 async function getSessionUser() {
     const cookieStore = await cookies();
@@ -21,9 +22,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { mealCount, dutyType, overtimeReason, overtimeMemo, memo } = body;
 
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const today = getJstDateString();
+        const timeStr = getJstTime();
 
         // 出勤レコードを検索
         const existing = await prisma.attendance.findUnique({

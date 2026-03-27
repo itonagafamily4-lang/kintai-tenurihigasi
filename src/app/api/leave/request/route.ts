@@ -21,13 +21,52 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "日付と休暇種別は必須です" }, { status: 400 });
         }
 
-        const validTypes = ["FULL_DAY", "HALF_DAY", "HOURLY", "SPECIAL_OTHER", "SPECIAL_SICK"];
+        const validTypes = ["FULL_DAY", "HALF_DAY", "HOURLY", "SPECIAL_OTHER", "SPECIAL_SICK", "NURSING", "CARE"];
         if (!validTypes.includes(leaveType)) {
             return NextResponse.json({ error: "無効な休暇種別です" }, { status: 400 });
         }
 
         if (leaveType === "HOURLY" && (!leaveStartTime || !leaveEndTime)) {
             return NextResponse.json({ error: "時間有休の場合は開始・終了時間の入力が必要です" }, { status: 400 });
+        }
+
+        // 特別休暇（看護・介護）の残高チェック
+        if (leaveType === "NURSING" || leaveType === "CARE") {
+            const fiscalYear = getFiscalYear(leaveDate);
+            const balance = await prisma.specialLeaveBalance.findUnique({
+                where: {
+                    staffId_fiscalYear_leaveType: {
+                        staffId: session.id,
+                        fiscalYear,
+                        leaveType,
+                    },
+                },
+            });
+
+            if (!balance || balance.totalDays <= balance.usedDays) {
+                return NextResponse.json({
+                    error: `${leaveType === "NURSING" ? "看護" : "介護"}休暇の残数がありません。管理者に付与状況を確認してください。`,
+                }, { status: 400 });
+            }
+
+            // PENDING のものも考慮
+            const pendingRequests = await prisma.leaveRequest.count({
+                where: {
+                    staffId: session.id,
+                    leaveType,
+                    status: "PENDING",
+                    leaveDate: {
+                        gte: `${fiscalYear}-04-01`,
+                        lte: `${fiscalYear + 1}-03-31`,
+                    }
+                }
+            });
+
+            if (balance.usedDays + pendingRequests + 1 > balance.totalDays) {
+                return NextResponse.json({
+                    error: `${leaveType === "NURSING" ? "看護" : "介護"}休暇の残数が不足しています（承認済+申請中が上限に達しています）`,
+                }, { status: 400 });
+            }
         }
 
         // 日曜日・祝日チェック

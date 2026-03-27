@@ -141,9 +141,28 @@ export async function POST(req: Request) {
 
             // Calculate carried over from previous year (targetYear - 1)
             const prevBalance = staff.leaveBalances.find((b: any) => b.fiscalYear === targetYear - 1);
+            let carriedOverHours = 0;
             if (prevBalance && prevBalance.remainingDays > 0) {
                 // 【重要】時効（2年）のため、繰り越せるのは前年の「新規付与分」が上限
                 carriedOverDays = Math.min(prevBalance.remainingDays, prevBalance.grantedDays);
+            }
+            // 前年度の時間有休残を繰り越し
+            if (prevBalance) {
+                const stdHours = staff.standardWorkHours || 8;
+                const hourlyUnit = Math.ceil(stdHours);
+                const hourlyLimit = hourlyUnit * 5;
+                const prevTimeUsed = prevBalance.timeLeaveUsedHours || 0;
+                const prevCarriedOverHours = prevBalance.carriedOverHours || 0;
+                // 前年度の時間有休残り = (上限 - 使用済) + 前年繰越時間
+                const remainingHourlyLeave = Math.max(0, hourlyLimit - prevTimeUsed) + prevCarriedOverHours;
+                // 繰越時間は 0～7 に収める（8時間以上は日数に繰り上げ）
+                if (remainingHourlyLeave >= 8) {
+                    const extraDays = Math.floor(remainingHourlyLeave / 8);
+                    carriedOverDays += extraDays;
+                    carriedOverHours = remainingHourlyLeave % 8;
+                } else {
+                    carriedOverHours = remainingHourlyLeave;
+                }
             }
 
             // 現在の年度に既に付与実績がある場合、使用済み日数を引き継ぐ
@@ -160,6 +179,7 @@ export async function POST(req: Request) {
                 grantTypeLabel,
                 grantedDays,
                 carriedOverDays,
+                carriedOverHours,
                 totalDays: grantedDays + carriedOverDays,
                 currentUsedDays,
                 currentTimeLeaveUsedHours
@@ -201,6 +221,7 @@ export async function POST(req: Request) {
                             fiscalYear: targetYear,
                             grantedDays: item.grantedDays,
                             carriedOverDays: item.carriedOverDays,
+                            carriedOverHours: item.carriedOverHours || 0,
                             totalDays: totalDays,
                             remainingDays: remainingDaysForCreate,
                             usedDays: 0,
@@ -210,6 +231,7 @@ export async function POST(req: Request) {
                         update: {
                             grantedDays: item.grantedDays,
                             carriedOverDays: item.carriedOverDays,
+                            carriedOverHours: item.carriedOverHours || 0,
                             totalDays: totalDays,
                             remainingDays: remainingDaysForUpdate,
                             mandatoryTakeDays: mandatoryTakeDays

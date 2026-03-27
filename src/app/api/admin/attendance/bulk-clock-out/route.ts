@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { calculateAttendance, DEFAULT_SETTINGS } from '@/lib/engine/calculator';
+import { getJstDateString } from '@/lib/date-utils';
 
 export async function POST(req: Request) {
   try {
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
     const settingsMap: Record<string, string> = {};
     settingsRows.forEach(s => { settingsMap[s.key] = s.value; });
 
-    const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+    const todayStr = getJstDateString();
 
     const results = [];
     

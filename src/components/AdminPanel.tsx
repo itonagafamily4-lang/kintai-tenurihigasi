@@ -869,28 +869,6 @@ export default function AdminPanel({ user }: Props) {
                                 </button>
                                 <div style={{ display: "flex", gap: "var(--space-sm)" }}>
                                     <button
-                                        onClick={() => handleRetireStaff(staffDetail.id, staffDetail.name)}
-                                        style={{
-                                            background: "none", border: "1px solid #ffeeba",
-                                            color: "#856404", cursor: "pointer", borderRadius: "8px",
-                                            fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
-                                        }}
-                                        title="退職（一覧から非表示になり、打刻ログは保持されます）"
-                                    >
-                                        🚪 退職
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteStaff(staffDetail.id, staffDetail.name)}
-                                        style={{
-                                            background: "rgba(220, 53, 69, 0.1)", border: "1px solid rgba(220, 53, 69, 0.3)",
-                                            color: "var(--color-danger)", cursor: "pointer", borderRadius: "8px",
-                                            fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
-                                        }}
-                                        title="完全削除（全ての関連データを含めて物理削除）"
-                                    >
-                                        ⚠️ データ抹消
-                                    </button>
-                                    <button
                                         onClick={() => {
                                             if (editMode) { setEditMode(false); }
                                             else {
@@ -1092,6 +1070,51 @@ export default function AdminPanel({ user }: Props) {
                                     </div>
                                 </div>
                             )}
+
+                            {/* 危険な操作セクション */}
+                            <div style={{
+                                marginTop: "var(--space-lg)",
+                                padding: "var(--space-lg)",
+                                background: "rgba(231, 76, 60, 0.03)",
+                                border: "1px dashed rgba(231, 76, 60, 0.3)",
+                                borderRadius: "var(--radius-lg)",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "var(--space-md)"
+                            }}>
+                                <h4 style={{ color: "var(--color-danger)", margin: 0, fontSize: "var(--font-size-sm)", fontWeight: "bold" }}>⚠️ 制限のある操作 / データ削除</h4>
+                                <div style={{ display: "flex", gap: "var(--space-md)", flexWrap: "wrap" }}>
+                                    <button
+                                        onClick={() => handleRetireStaff(staffDetail.id, staffDetail.name)}
+                                        style={{
+                                            flex: 1, minWidth: "150px",
+                                            background: "#fff", border: "1px solid #ffeeba",
+                                            color: "#856404", cursor: "pointer", borderRadius: "8px",
+                                            fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px"
+                                        }}
+                                        title="退職（一覧から非表示になり、打刻ログは保持されます）"
+                                    >
+                                        <span>🚪</span> 退職処理
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteStaff(staffDetail.id, staffDetail.name)}
+                                        style={{
+                                            flex: 1, minWidth: "150px",
+                                            background: "rgba(220, 53, 69, 0.05)", border: "1px solid rgba(220, 53, 69, 0.3)",
+                                            color: "var(--color-danger)", cursor: "pointer", borderRadius: "8px",
+                                            fontWeight: 600, fontSize: "var(--font-size-sm)", padding: "var(--space-sm) var(--space-md)",
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px"
+                                        }}
+                                        title="完全削除（全ての関連データを含めて物理削除）"
+                                    >
+                                        <span>⚠️</span> データの完全抹消
+                                    </button>
+                                </div>
+                                <p style={{ fontSize: "11px", color: "var(--text-secondary)", margin: 0 }}>
+                                    ※退職処理は職員リストから非表示になりますがデータは残ります。データ抹消は全ての記録が完全に消去され、元に戻せません。
+                                </p>
+                            </div>
 
                             <AdminStaffLeaveBalance staffId={staffDetail.id} />
                             <AdminStaffSpecialBalances staffId={staffDetail.id} />
@@ -1563,7 +1586,7 @@ export default function AdminPanel({ user }: Props) {
 
             {/* ========== カレンダータブ ========== */}
             {adminTab === "calendar" && (
-                <CalendarAdmin />
+                <CalendarAdmin orgId={user.orgId} />
             )}
 
             {/* ========== 特別勤務設定タブ ========== */}

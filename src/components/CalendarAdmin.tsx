@@ -20,9 +20,11 @@ interface TeamLeaveEntry {
     reason: string | null;
 }
 
-interface Props { }
+interface Props {
+    orgId?: string;
+}
 
-export default function CalendarAdmin({ }: Props) {
+export default function CalendarAdmin({ orgId: initialOrgId }: Props) {
     const [year, setYear] = useState(new Date().getFullYear());
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -39,9 +41,9 @@ export default function CalendarAdmin({ }: Props) {
     const fetchSchedules = useCallback(async () => {
         setLoading(true);
         try {
-            const orgId = "1"; // ダミーまたはデフォルト
+            const currentOrgId = initialOrgId || "1";
             const [schedRes, teamRes] = await Promise.all([
-                fetch(`/api/schedule?month=${year}-${String(month).padStart(2, '0')}&orgId=${orgId}`),
+                fetch(`/api/schedule?month=${year}-${String(month).padStart(2, '0')}&orgId=${currentOrgId}`),
                 fetch(`/api/leave/team?year=${year}&month=${month}`)
             ]);
 
@@ -79,7 +81,7 @@ export default function CalendarAdmin({ }: Props) {
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("orgId", "1");
+        formData.append("orgId", initialOrgId || "1");
 
         try {
             const res = await fetch("/api/schedule/upload", {

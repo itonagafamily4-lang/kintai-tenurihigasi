@@ -25,6 +25,14 @@ interface LeaveBreakdown {
     hourly: number;
     sickLeave: number;
     pending: number;
+    nursingLeave: number;
+    careLeave: number;
+}
+
+interface SpecialBalance {
+    leaveType: string;
+    totalDays: number;
+    usedDays: number;
 }
 
 interface LeaveRequest {
@@ -57,6 +65,8 @@ const LEAVE_TYPES = [
     { value: "HOURLY", label: "時間有給", desc: "時間単位" },
     { value: "SPECIAL_SICK", label: "感染症特休", desc: "最大3日" },
     { value: "SPECIAL_OTHER", label: "特休", desc: "特別な休み" },
+    { value: "NURSING", label: "看護休暇", desc: "子供の看護など" },
+    { value: "CARE", label: "介護休暇", desc: "家族の介護など" },
 ];
 
 const REASON_OPTIONS = [
@@ -81,6 +91,8 @@ function formatLeaveType(type: string, halfDayPeriod?: string | null) {
         case "HOURLY": return "時間有給";
         case "SPECIAL_OTHER": return "特休";
         case "SPECIAL_SICK": return "感染症特休";
+        case "NURSING": return "看護休暇";
+        case "CARE": return "介護休暇";
         default: return type;
     }
 }
@@ -93,6 +105,7 @@ function formatDate(dateStr: string) {
 export default function LeaveManagement({ user }: LeaveManagementProps) {
     const [balance, setBalance] = useState<LeaveBalance | null>(null);
     const [breakdown, setBreakdown] = useState<LeaveBreakdown | null>(null);
+    const [specialBalances, setSpecialBalances] = useState<SpecialBalance[]>([]);
     const [fiscalYear, setFiscalYear] = useState<number>(0);
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
@@ -120,6 +133,7 @@ export default function LeaveManagement({ user }: LeaveManagementProps) {
             if (!data.error) {
                 setBalance(data.balance);
                 setBreakdown(data.breakdown);
+                setSpecialBalances(data.specialBalances || []);
                 setFiscalYear(data.fiscalYear);
             }
         } catch (error) {
@@ -340,6 +354,33 @@ export default function LeaveManagement({ user }: LeaveManagementProps) {
                                     <strong>{Math.ceil(balance.staff.standardWorkHours) * 5 - (balance.timeLeaveUsedHours || 0)} 時間</strong>
                                 </div>
                             </div>
+
+                            {/* 特別休暇残高 */}
+                            {specialBalances.length > 0 && specialBalances.some(sb => sb.totalDays > 0) && (
+                                <div style={{ 
+                                    marginTop: "var(--space-sm)", 
+                                    padding: "var(--space-sm)", 
+                                    background: "rgba(255,255,255,0.2)", 
+                                    borderRadius: "var(--radius-md)",
+                                    fontSize: "0.8rem",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "4px"
+                                }}>
+                                    {specialBalances.find(sb => sb.leaveType === "NURSING" && sb.totalDays > 0) && (
+                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                            <span>看護休暇 残り:</span>
+                                            <strong>{specialBalances.find(sb => sb.leaveType === "NURSING")!.totalDays - specialBalances.find(sb => sb.leaveType === "NURSING")!.usedDays} / {specialBalances.find(sb => sb.leaveType === "NURSING")!.totalDays} 日</strong>
+                                        </div>
+                                    )}
+                                    {specialBalances.find(sb => sb.leaveType === "CARE" && sb.totalDays > 0) && (
+                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                            <span>介護休暇 残り:</span>
+                                            <strong>{specialBalances.find(sb => sb.leaveType === "CARE")!.totalDays - specialBalances.find(sb => sb.leaveType === "CARE")!.usedDays} / {specialBalances.find(sb => sb.leaveType === "CARE")!.totalDays} 日</strong>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -417,7 +458,17 @@ export default function LeaveManagement({ user }: LeaveManagementProps) {
                             休暇種別<span className={styles.formRequired}>*</span>
                         </label>
                         <div className={styles.typeSelector}>
-                            {LEAVE_TYPES.map((type) => (
+                            {LEAVE_TYPES.filter(type => {
+                                if (type.value === "NURSING") {
+                                    const b = specialBalances.find(sb => sb.leaveType === "NURSING");
+                                    return b && b.totalDays > 0;
+                                }
+                                if (type.value === "CARE") {
+                                    const b = specialBalances.find(sb => sb.leaveType === "CARE");
+                                    return b && b.totalDays > 0;
+                                }
+                                return true;
+                            }).map((type) => (
                                 <button
                                     key={type.value}
                                     type="button"

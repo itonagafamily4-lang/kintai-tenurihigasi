@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { getEffectiveSchedule } from "@/lib/engine/calculator";
+import { getJstDate } from "@/lib/date-utils";
 
 // 締め日に基づいた期間を計算
 function getClosingPeriod(year: number, month: number, closingDay: number) {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
 
         // クエリパラメータから年月を取得（デフォルトは今月）
-        const now = new Date();
+        const now = getJstDate();
         const year = parseInt(searchParams.get("year") || String(now.getFullYear()));
         const month = parseInt(searchParams.get("month") || String(now.getMonth() + 1));
         const mode = searchParams.get("mode");
@@ -188,6 +189,8 @@ export async function GET(req: NextRequest) {
             publicHolidays: attendances.filter((a) => a.dayType === "PUBLIC_HOLIDAY").length,
             paidLeave: leaveRequests.filter((l) => l.leaveType === "FULL_DAY" || l.leaveType === "HALF_DAY").length,
             sickLeave: leaveRequests.filter((l) => l.leaveType === "SPECIAL_SICK").length,
+            nursingLeave: leaveRequests.filter((l) => l.leaveType === "NURSING").length,
+            careLeave: leaveRequests.filter((l) => l.leaveType === "CARE").length,
             totalHourlyLeave: leaveRequests.filter(l => l.leaveType === "HOURLY").reduce((sum, l) => sum + (l.leaveHours || 0), 0),
             totalMeals: attendances.reduce((sum, a) => sum + ((a as any).mealCount || 0), 0),
             lateCount: attendances.filter(a => a.memo && a.memo.includes("遅刻")).length,

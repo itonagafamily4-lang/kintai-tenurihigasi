@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
+import { getJstDateString } from '@/lib/date-utils';
 
 async function getSessionUser() {
     const cookieStore = await cookies();
@@ -19,7 +20,7 @@ export async function GET() {
             return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = getJstDateString();
         const attendance = await prisma.attendance.findUnique({
             where: { staffId_workDate: { staffId: user.id, workDate: today } },
         });

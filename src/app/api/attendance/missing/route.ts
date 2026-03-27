@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getJstDateString } from "@/lib/date-utils";
 
 export async function GET(req: NextRequest) {
     try {
@@ -13,12 +14,10 @@ export async function GET(req: NextRequest) {
         const session = JSON.parse(sessionCookie.value);
 
         // 昨日の日付文字列を取得 "YYYY-MM-DD"
-        const yesterdayDate = new Date();
-        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const y = yesterdayDate.getFullYear();
-        const m = String(yesterdayDate.getMonth() + 1).padStart(2, "0");
-        const d = String(yesterdayDate.getDate()).padStart(2, "0");
-        const yesterdayStr = `${y}-${m}-${d}`;
+        const today = getJstDateString();
+        const jstNow = new Date(today);
+        jstNow.setDate(jstNow.getDate() - 1);
+        const yesterdayStr = jstNow.toISOString().split('T')[0];
 
         // 過去の勤務記録のうち、出勤時間または退勤時間が未入力のものを探す
         const missingRecords = await prisma.attendance.findMany({

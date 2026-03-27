@@ -191,7 +191,7 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
         if (!confirm("本日の打刻データを取り消します。よろしいですか？")) return;
         setClockLoading(true);
         try {
-            const date = new Date().toISOString().split('T')[0];
+            const date = new Date().toLocaleDateString('sv-SE');
             const res = await fetch("/api/attendance/reset", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -276,181 +276,181 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
                 )}
                 {/* ロード完了後のメインコンテンツ */}
                 {!isInitialLoading && (<>
-                {missingAlert?.hasMissing && (
-                    <div
-                        className="alert"
-                        style={{
-                            marginBottom: "var(--space-lg)",
-                            background: "var(--color-danger)",
-                            color: "white",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            boxShadow: "0 4px 12px rgba(231, 76, 60, 0.4)"
-                        }}
-                        onClick={() => onNavigateToHistory(missingAlert.date)}
-                    >
-                        <span style={{ fontSize: "1.2rem", marginRight: "var(--space-sm)" }}>⚠️</span>
-                        <div style={{ flex: 1, fontWeight: "bold" }}>
-                            {missingAlert.message}
-                            <div style={{ fontSize: "0.85em", opacity: 0.9, marginTop: "2px", fontWeight: "normal" }}>
-                                タップ・クリックして履歴画面から修正してください
+                    {missingAlert?.hasMissing && (
+                        <div
+                            className="alert"
+                            style={{
+                                marginBottom: "var(--space-lg)",
+                                background: "var(--color-danger)",
+                                color: "white",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                boxShadow: "0 4px 12px rgba(231, 76, 60, 0.4)"
+                            }}
+                            onClick={() => onNavigateToHistory(missingAlert.date)}
+                        >
+                            <span style={{ fontSize: "1.2rem", marginRight: "var(--space-sm)" }}>⚠️</span>
+                            <div style={{ flex: 1, fontWeight: "bold" }}>
+                                {missingAlert.message}
+                                <div style={{ fontSize: "0.85em", opacity: 0.9, marginTop: "2px", fontWeight: "normal" }}>
+                                    タップ・クリックして履歴画面から修正してください
+                                </div>
+                            </div>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setMissingAlert(null); }}
+                                style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "white", fontSize: "1.2rem" }}
+                            >✕</button>
+                        </div>
+                    )}
+
+                    {alert && (
+                        <div className="alert alert-danger" style={{ marginBottom: "var(--space-lg)" }}>
+                            ⚠️ {alert.message}
+                            <button onClick={onDismissAlert} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--color-danger)" }}>✕</button>
+                        </div>
+                    )}
+
+                    {/* メッセージ */}
+                    {message && (
+                        <div className={`alert alert-${message.type}`} style={{ marginBottom: "var(--space-lg)" }}>
+                            {message.text}
+                        </div>
+                    )}
+
+                    {/* 日時表示 */}
+                    <div className={styles.dateTimeArea}>
+                        <p className={styles.dateText}>📅 {formatDate(currentTime)}</p>
+                        <p className={styles.timeText}>{formatTime(currentTime)}</p>
+                    </div>
+
+                    {/* 休暇メッセージ */}
+                    {isFullDayLeave && (
+                        <div style={{ padding: "var(--space-md)", background: "rgba(52, 152, 219, 0.1)", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-md)", textAlign: "center", color: "var(--color-primary)" }}>
+                            本日は <strong>{leaveLabel}</strong> が承認されています。ゆっくりお休みください ☕️
+                        </div>
+                    )}
+
+                    {/* 特別勤務設定バナー */}
+                    {effectiveSchedule?.isOverride && (
+                        <div style={{
+                            padding: "var(--space-md)",
+                            background: "rgba(212, 149, 106, 0.1)",
+                            border: "1px solid var(--color-accent)",
+                            borderRadius: "var(--radius-md)",
+                            marginBottom: "var(--space-md)",
+                            textAlign: "center",
+                            color: "var(--color-accent-dark)",
+                            animation: "fadeIn 0.5s ease-out"
+                        }}>
+                            <span style={{ marginRight: "8px" }}>📢</span>
+                            <strong>行事用設定適用中</strong>: {effectiveSchedule.title}
+                            <div style={{ fontSize: "0.85rem", marginTop: "4px", opacity: 0.9 }}>
+                                本日の基準勤務時間: {effectiveSchedule.startTime} 〜 {effectiveSchedule.endTime}
                             </div>
                         </div>
+                    )}
+
+                    {/* 打刻ボタン */}
+                    <div className={styles.clockButtons}>
                         <button
-                            onClick={(e) => { e.stopPropagation(); setMissingAlert(null); }}
-                            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "white", fontSize: "1.2rem" }}
-                        >✕</button>
-                    </div>
-                )}
-
-                {alert && (
-                    <div className="alert alert-danger" style={{ marginBottom: "var(--space-lg)" }}>
-                        ⚠️ {alert.message}
-                        <button onClick={onDismissAlert} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--color-danger)" }}>✕</button>
-                    </div>
-                )}
-
-                {/* メッセージ */}
-                {message && (
-                    <div className={`alert alert-${message.type}`} style={{ marginBottom: "var(--space-lg)" }}>
-                        {message.text}
-                    </div>
-                )}
-
-                {/* 日時表示 */}
-                <div className={styles.dateTimeArea}>
-                    <p className={styles.dateText}>📅 {formatDate(currentTime)}</p>
-                    <p className={styles.timeText}>{formatTime(currentTime)}</p>
-                </div>
-
-                {/* 休暇メッセージ */}
-                {isFullDayLeave && (
-                    <div style={{ padding: "var(--space-md)", background: "rgba(52, 152, 219, 0.1)", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-md)", textAlign: "center", color: "var(--color-primary)" }}>
-                        本日は <strong>{leaveLabel}</strong> が承認されています。ゆっくりお休みください ☕️
-                    </div>
-                )}
-
-                {/* 特別勤務設定バナー */}
-                {effectiveSchedule?.isOverride && (
-                    <div style={{
-                        padding: "var(--space-md)",
-                        background: "rgba(212, 149, 106, 0.1)",
-                        border: "1px solid var(--color-accent)",
-                        borderRadius: "var(--radius-md)",
-                        marginBottom: "var(--space-md)",
-                        textAlign: "center",
-                        color: "var(--color-accent-dark)",
-                        animation: "fadeIn 0.5s ease-out"
-                    }}>
-                        <span style={{ marginRight: "8px" }}>📢</span>
-                        <strong>行事用設定適用中</strong>: {effectiveSchedule.title}
-                        <div style={{ fontSize: "0.85rem", marginTop: "4px", opacity: 0.9 }}>
-                            本日の基準勤務時間: {effectiveSchedule.startTime} 〜 {effectiveSchedule.endTime}
-                        </div>
-                    </div>
-                )}
-
-                {/* 打刻ボタン */}
-                <div className={styles.clockButtons}>
-                    <button
-                        className={`${styles.clockBtn} ${styles.clockInBtn}`}
-                        onClick={handleClockIn}
-                        disabled={clockLoading || isClockIn || isCompleted || isFullDayLeave}
-                        style={isFullDayLeave ? { opacity: 0.5, cursor: "not-allowed", background: "var(--text-secondary)" } : {}}
-                    >
-                        <span className={styles.clockBtnText}>出勤</span>
-                    </button>
-                    <button
-                        className={`${styles.clockBtn} ${styles.clockOutBtn}`}
-                        onClick={openClockOutModal}
-                        disabled={clockLoading || !isClockIn || isFullDayLeave}
-                        style={isFullDayLeave ? { opacity: 0.5, cursor: "not-allowed", background: "var(--text-secondary)" } : {}}
-                    >
-                        <span className={styles.clockBtnText}>退勤</span>
-                    </button>
-                </div>
-
-                {isFullDayLeave && (isClockIn || isCompleted) && (
-                    <div style={{ textAlign: "center", marginTop: "var(--space-md)" }}>
-                        <button
-                            onClick={handleResetClock}
-                            style={{ background: "transparent", color: "var(--color-danger)", border: "1px solid var(--color-danger)", padding: "var(--space-xs) var(--space-sm)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: "0.85rem" }}
+                            className={`${styles.clockBtn} ${styles.clockInBtn}`}
+                            onClick={handleClockIn}
+                            disabled={clockLoading || isClockIn || isCompleted || isFullDayLeave}
+                            style={isFullDayLeave ? { opacity: 0.5, cursor: "not-allowed", background: "var(--text-secondary)" } : {}}
                         >
-                            休暇日に間違えて打刻してしまった場合（打刻取消）
+                            <span className={styles.clockBtnText}>出勤</span>
+                        </button>
+                        <button
+                            className={`${styles.clockBtn} ${styles.clockOutBtn}`}
+                            onClick={openClockOutModal}
+                            disabled={clockLoading || !isClockIn || isFullDayLeave}
+                            style={isFullDayLeave ? { opacity: 0.5, cursor: "not-allowed", background: "var(--text-secondary)" } : {}}
+                        >
+                            <span className={styles.clockBtnText}>退勤</span>
                         </button>
                     </div>
-                )}
 
-                {/* メモ入力（出勤前のみ表示） */}
-                {!isClockIn && !isCompleted && (
-                    <div className={styles.preClockInputs}>
-                        <div className="input-group">
-                            <label>メモ</label>
-                            <input
-                                type="text"
-                                className="input"
-                                placeholder="備考があれば入力"
-                                value={memo}
-                                onChange={(e) => setMemo(e.target.value)}
-                            />
+                    {isFullDayLeave && (isClockIn || isCompleted) && (
+                        <div style={{ textAlign: "center", marginTop: "var(--space-md)" }}>
+                            <button
+                                onClick={handleResetClock}
+                                style={{ background: "transparent", color: "var(--color-danger)", border: "1px solid var(--color-danger)", padding: "var(--space-xs) var(--space-sm)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: "0.85rem" }}
+                            >
+                                休暇日に間違えて打刻してしまった場合（打刻取消）
+                            </button>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* 本日の状況 */}
-                <div className={styles.statusCard}>
-                    <h3 className={styles.statusTitle}>本日の状況</h3>
-                    <div className={styles.statusGrid}>
-                        <div className={styles.statusItem}>
-                            <span className={styles.statusLabel}>出勤</span>
-                            <span className={styles.statusValue}>{attendance?.clockIn || "--:--"}</span>
-                        </div>
-                        <div className={styles.statusItem}>
-                            <span className={styles.statusLabel}>退勤</span>
-                            <span className={styles.statusValue}>{attendance?.clockOut || "--:--"}</span>
-                        </div>
-                        <div className={styles.statusItem}>
-                            <span className={styles.statusLabel}>実労働</span>
-                            <span className={styles.statusValue}>
-                                {isCompleted && attendance?.actualWorkHours !== undefined ? `${attendance.actualWorkHours.toFixed(2)}h` : "--"}
-                            </span>
-                        </div>
-                        {user.employmentType !== "PART_TIME" && (
-                            <div className={styles.statusItem}>
-                                <span className={styles.statusLabel}>残業</span>
-                                <span className={styles.statusValue} style={attendance?.overtimeHours && attendance.overtimeHours > 0 ? { color: "var(--color-danger)" } : {}}>
-                                    {isCompleted && attendance?.overtimeHours !== undefined ? `${attendance.overtimeHours.toFixed(2)}h` : "--"}
-                                </span>
+                    {/* メモ入力（出勤前のみ表示） */}
+                    {!isClockIn && !isCompleted && (
+                        <div className={styles.preClockInputs}>
+                            <div className="input-group">
+                                <label>メモ</label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="備考があれば入力"
+                                    value={memo}
+                                    onChange={(e) => setMemo(e.target.value)}
+                                />
                             </div>
-                        )}
-                        {user.employmentType === "SHORT_TIME" && (
+                        </div>
+                    )}
+
+                    {/* 本日の状況 */}
+                    <div className={styles.statusCard}>
+                        <h3 className={styles.statusTitle}>本日の状況</h3>
+                        <div className={styles.statusGrid}>
                             <div className={styles.statusItem}>
-                                <span className={styles.statusLabel}>時短値</span>
+                                <span className={styles.statusLabel}>出勤</span>
+                                <span className={styles.statusValue}>{attendance?.clockIn || "--:--"}</span>
+                            </div>
+                            <div className={styles.statusItem}>
+                                <span className={styles.statusLabel}>退勤</span>
+                                <span className={styles.statusValue}>{attendance?.clockOut || "--:--"}</span>
+                            </div>
+                            <div className={styles.statusItem}>
+                                <span className={styles.statusLabel}>実労働</span>
                                 <span className={styles.statusValue}>
-                                    {isCompleted ? attendance?.shortTimeValue : "--"}
+                                    {isCompleted && attendance?.actualWorkHours !== undefined ? `${attendance.actualWorkHours.toFixed(2)}h` : "--"}
                                 </span>
                             </div>
-                        )}
-                        <div className={styles.statusItem}>
-                            <span className={styles.statusLabel}>食事</span>
-                            <span className={styles.statusValue}>
-                                {attendance?.mealCount ? "🍽️ あり" : "—"}
-                            </span>
+                            {user.employmentType !== "PART_TIME" && (
+                                <div className={styles.statusItem}>
+                                    <span className={styles.statusLabel}>残業</span>
+                                    <span className={styles.statusValue} style={attendance?.overtimeHours && attendance.overtimeHours > 0 ? { color: "var(--color-danger)" } : {}}>
+                                        {isCompleted && attendance?.overtimeHours !== undefined ? `${attendance.overtimeHours.toFixed(2)}h` : "--"}
+                                    </span>
+                                </div>
+                            )}
+                            {user.employmentType === "SHORT_TIME" && (
+                                <div className={styles.statusItem}>
+                                    <span className={styles.statusLabel}>時短値</span>
+                                    <span className={styles.statusValue}>
+                                        {isCompleted ? attendance?.shortTimeValue : "--"}
+                                    </span>
+                                </div>
+                            )}
+                            <div className={styles.statusItem}>
+                                <span className={styles.statusLabel}>食事</span>
+                                <span className={styles.statusValue}>
+                                    {attendance?.mealCount ? "🍽️ あり" : "—"}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* 退勤完了時の詳細表示 */}
-                {isCompleted && attendance && (
-                    <div className={styles.completedCard}>
-                        <div className={styles.completedIcon}>✅</div>
-                        <p className={styles.completedText}>本日の勤務は完了です</p>
-                        {attendance.breakHours > 0 && (
-                            <p className={styles.completedDetail}>休憩: {attendance.breakHours}h (自動控除)</p>
-                        )}
-                    </div>
-                )}
+                    {/* 退勤完了時の詳細表示 */}
+                    {isCompleted && attendance && (
+                        <div className={styles.completedCard}>
+                            <div className={styles.completedIcon}>✅</div>
+                            <p className={styles.completedText}>本日の勤務は完了です</p>
+                            {attendance.breakHours > 0 && (
+                                <p className={styles.completedDetail}>休憩: {attendance.breakHours}h (自動控除)</p>
+                            )}
+                        </div>
+                    )}
                 </>)}
             </main>
 
@@ -473,15 +473,15 @@ export default function Dashboard({ user, alert, onDismissAlert, onLogout, onNav
                                 <div className="input-group">
                                     <label>当番</label>
                                     <select
-                                className="select"
-                                value={dutyType}
-                                onChange={(e) => setDutyType(e.target.value)}
-                            >
-                                <option value="NONE">なし</option>
-                                {duties.map(d => (
-                                    <option key={d.id} value={d.name}>{d.name}</option>
-                                ))}
-                            </select>
+                                        className="select"
+                                        value={dutyType}
+                                        onChange={(e) => setDutyType(e.target.value)}
+                                    >
+                                        <option value="NONE">なし</option>
+                                        {duties.map(d => (
+                                            <option key={d.id} value={d.name}>{d.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 

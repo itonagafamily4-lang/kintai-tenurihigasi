@@ -62,6 +62,8 @@ interface HistoryData {
         publicHolidays: number;
         paidLeave: number;
         sickLeave: number;
+        nursingLeave: number;
+        careLeave: number;
         totalHourlyLeave: number;
         totalMeals: number;
         lateCount: number;
@@ -406,6 +408,21 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                 <div className={styles.totalItem}>
                     <span>特休</span><strong>{data.summary.publicHolidays}日</strong>
                 </div>
+                {data.summary.sickLeave > 0 && (
+                    <div className={styles.totalItem}>
+                        <span>感染特休</span><strong>{data.summary.sickLeave}日</strong>
+                    </div>
+                )}
+                {data.summary.nursingLeave > 0 && (
+                    <div className={styles.totalItem}>
+                        <span>看護</span><strong>{data.summary.nursingLeave}日</strong>
+                    </div>
+                )}
+                {data.summary.careLeave > 0 && (
+                    <div className={styles.totalItem}>
+                        <span>介護</span><strong>{data.summary.careLeave}日</strong>
+                    </div>
+                )}
                 <div className={styles.totalItem}>
                     <span>有休</span><strong>{data.summary.paidLeave}日</strong>
                 </div>

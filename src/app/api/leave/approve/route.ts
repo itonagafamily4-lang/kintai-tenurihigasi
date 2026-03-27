@@ -104,6 +104,26 @@ export async function POST(req: NextRequest) {
                             },
                         });
                     }
+                
+                // 看護・介護休暇の残高更新
+                if (leaveType === "NURSING" || leaveType === "CARE") {
+                    const fiscalYear = getFiscalYear(leaveRequest.leaveDate);
+                    const balance = await tx.specialLeaveBalance.findUnique({
+                        where: {
+                            staffId_fiscalYear_leaveType: {
+                                staffId: leaveRequest.staffId,
+                                fiscalYear,
+                                leaveType,
+                            },
+                        },
+                    });
+
+                    if (balance) {
+                        await tx.specialLeaveBalance.update({
+                            where: { id: balance.id },
+                            data: { usedDays: { increment: 1 } },
+                        });
+                    }
                 }
 
                 // 勤怠テーブルにも記録
@@ -111,6 +131,17 @@ export async function POST(req: NextRequest) {
                     leaveType === "SPECIAL_OTHER" ? "WORK" :
                     leaveType === "SPECIAL_SICK" ? "SPECIAL_SICK" :
                     "WORK";
+
+                const leaveLabel = 
+                    leaveType === "FULL_DAY" ? "有休" :
+                    leaveType === "HALF_DAY" ? "半日有休" :
+                    leaveType === "HOURLY" ? "時間有給" :
+                    leaveType === "NURSING" ? "看護休暇" :
+                    leaveType === "CARE" ? "介護休暇" :
+                    leaveType === "SPECIAL_SICK" ? "感染症特休" :
+                    "特休";
+
+                const memoText = `${leaveLabel}${leaveRequest.reason ? `（${leaveRequest.reason}）` : ""}`;
 
                 const existingAttendance = await tx.attendance.findUnique({
                     where: {
@@ -128,11 +159,9 @@ export async function POST(req: NextRequest) {
                             hourlyLeave: leaveType === "HOURLY"
                                 ? { increment: leaveRequest.leaveHours || 0 }
                                 : existingAttendance.hourlyLeave,
-                            dayType: leaveType === "FULL_DAY" ? "WORK" : existingAttendance.dayType,
-                            status: leaveType === "FULL_DAY" ? "COMPLETED" : existingAttendance.status,
-                            memo: leaveType === "FULL_DAY"
-                                ? `有休（${leaveRequest.reason || ""}）`
-                                : existingAttendance.memo,
+                            dayType: (leaveType === "FULL_DAY" || leaveType === "NURSING" || leaveType === "CARE" || leaveType === "SPECIAL_SICK") ? "WORK" : existingAttendance.dayType,
+                            status: (leaveType === "FULL_DAY" || leaveType === "NURSING" || leaveType === "CARE" || leaveType === "SPECIAL_SICK") ? "COMPLETED" : existingAttendance.status,
+                            memo: memoText,
                         },
                     });
                 } else {
@@ -141,10 +170,10 @@ export async function POST(req: NextRequest) {
                         data: {
                             staffId: leaveRequest.staffId,
                             workDate: leaveRequest.leaveDate,
-                            dayType: leaveType === "FULL_DAY" || leaveType === "HOURLY" ? "WORK" : dayType,
-                            status: leaveType === "FULL_DAY" ? "COMPLETED" : "NOT_CLOCKED_IN",
+                            dayType: (leaveType === "FULL_DAY" || leaveType === "HOURLY" || leaveType === "NURSING" || leaveType === "CARE" || leaveType === "SPECIAL_SICK") ? "WORK" : dayType,
+                            status: (leaveType === "FULL_DAY" || leaveType === "NURSING" || leaveType === "CARE" || leaveType === "SPECIAL_SICK") ? "COMPLETED" : "NOT_CLOCKED_IN",
                             hourlyLeave: leaveType === "HOURLY" ? (leaveRequest.leaveHours || 0) : 0,
-                            memo: leaveType === "FULL_DAY" ? `有休（${leaveRequest.reason || ""}）` : null,
+                            memo: memoText,
                         },
                     });
                 }

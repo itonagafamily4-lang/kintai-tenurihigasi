@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
+import { getJstDateString, getJstTime } from '@/lib/date-utils';
 
 async function getSessionUser() {
     const cookieStore = await cookies();
@@ -16,7 +17,7 @@ async function getSessionUser() {
 export async function POST(request: NextRequest) {
     let currentUser = null;
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getJstDateString();
 
     try {
         const user = await getSessionUser();
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
         }
 
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const timeStr = getJstTime();
 
         // すでにレコードがある場合（時間有休が先に承認されている場合など）
         const existing = await prisma.attendance.findUnique({
