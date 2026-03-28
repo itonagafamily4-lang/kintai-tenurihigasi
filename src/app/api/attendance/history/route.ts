@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
                 where: {
                     staffId: targetStaffId,
                     leaveDate: { gte: startStr, lte: endStr },
-                    status: "APPROVED",
+                    status: { in: ["APPROVED", "PENDING"] },
                 },
             }),
             // 対象職員の情報

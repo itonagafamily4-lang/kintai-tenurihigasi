@@ -57,28 +57,46 @@ function applyWhereClause(baseQuery: FirebaseFirestore.Query, where: any): Where
       if ('not' in condition) {
         const notVal = condition.not;
         postFilters.push((item: any) => item[key] !== notVal);
-      } else if ('in' in condition) {
+      }
+      if ('in' in condition) {
         if (condition.in.length > 0) {
           const vals = condition.in;
           postFilters.push((item: any) => vals.includes(item[key]));
         }
-      } else if ('gte' in condition) {
+      }
+      if ('gte' in condition) {
         const v = condition.gte;
         postFilters.push((item: any) => item[key] >= v);
-      } else if ('lte' in condition) {
+      }
+      if ('lte' in condition) {
         const v = condition.lte;
         postFilters.push((item: any) => item[key] <= v);
-      } else if ('gt' in condition) {
+      }
+      if ('gt' in condition) {
         const v = condition.gt;
         postFilters.push((item: any) => item[key] > v);
-      } else if ('lt' in condition) {
+      }
+      if ('lt' in condition) {
         const v = condition.lt;
         postFilters.push((item: any) => item[key] < v);
-      } else if ('contains' in condition) {
+      }
+      if ('contains' in condition) {
         const s = condition.contains;
         postFilters.push((item: any) => typeof item[key] === 'string' && item[key].includes(s));
-      } else {
-        // ネストされたオブジェクト（compound unique key）
+      }
+      if ('startsWith' in condition) {
+        const s = condition.startsWith;
+        postFilters.push((item: any) => typeof item[key] === 'string' && item[key].startsWith(s));
+      }
+      if ('endsWith' in condition) {
+        const s = condition.endsWith;
+        postFilters.push((item: any) => typeof item[key] === 'string' && item[key].endsWith(s));
+      }
+      if (!('not' in condition || 'in' in condition || 'gte' in condition || 'lte' in condition || 
+            'gt' in condition || 'lt' in condition || 'contains' in condition || 
+            'startsWith' in condition || 'endsWith' in condition)) {
+        // ネストされたオブジェクト（compound unique key または Relation filter）
+        // ただし、 Relation filter は現状サポート外なので、ここに来た場合は 1つ目の EqApplied チェックを行う
         for (const [subKey, subValue] of Object.entries(condition)) {
           if (!firstEqApplied) {
             query = query.where(subKey, '==', subValue);

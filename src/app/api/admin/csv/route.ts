@@ -49,10 +49,11 @@ export async function GET(req: NextRequest) {
             orderBy: { employeeNo: "asc" },
         });
 
+        const staffIds = allStaff.map(s => s.id);
         // 全勤怠データ
         const allAttendances = await prisma.attendance.findMany({
             where: {
-                staff: { orgId: session.orgId },
+                staffId: { in: staffIds },
                 workDate: { gte: startStr, lte: endStr },
             },
         });
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
         // 全休暇データ
         const allLeaves = await prisma.leaveRequest.findMany({
             where: {
-                staff: { orgId: session.orgId },
+                staffId: { in: staffIds },
                 leaveDate: { gte: startStr, lte: endStr },
                 status: "APPROVED",
             },

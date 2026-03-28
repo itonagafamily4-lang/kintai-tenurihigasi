@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "権限がありません" }, { status: 403 });
         }
 
-        // トランザクションで承認処理
+        // トランザクションで承認処理（注：proxyの$transactionは簡易実装）
         const result = await prisma.$transaction(async (tx) => {
             // 申請ステータスを更新
             const updated = await tx.leaveRequest.update({
@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
                             },
                         });
                     }
+                }
                 
                 // 看護・介護休暇の残高更新
                 if (leaveType === "NURSING" || leaveType === "CARE") {

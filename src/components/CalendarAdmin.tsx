@@ -37,6 +37,7 @@ export default function CalendarAdmin({ orgId: initialOrgId }: Props) {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const fetchSchedules = useCallback(async () => {
         setLoading(true);
@@ -127,6 +128,7 @@ export default function CalendarAdmin({ orgId: initialOrgId }: Props) {
     function closeModal() {
         setSelectedDate(null);
         setEditingSchedule(null);
+        setShowDeleteConfirm(false);
     }
 
     async function handleSaveSchedule() {
@@ -157,9 +159,9 @@ export default function CalendarAdmin({ orgId: initialOrgId }: Props) {
         setIsSaving(false);
     }
 
-    async function handleDeleteSchedule() {
+    async function handleDeleteSchedule(e: React.MouseEvent) {
+        e.stopPropagation();
         if (!editingSchedule?.id) return;
-        if (!confirm("この予定を削除してもよろしいですか？")) return;
 
         setIsSaving(true);
         try {
@@ -168,16 +170,24 @@ export default function CalendarAdmin({ orgId: initialOrgId }: Props) {
             });
 
             if (res.ok) {
+                // 即座にフェッチして反映
                 await fetchSchedules();
                 closeModal();
             } else {
                 const err = await res.json();
                 alert(err.error || "削除に失敗しました");
+                setShowDeleteConfirm(false);
             }
         } catch (e) {
             alert("通信エラーが発生しました");
+            setShowDeleteConfirm(false);
         }
         setIsSaving(false);
+    }
+
+    async function handleSaveClick(e: React.MouseEvent) {
+        e.stopPropagation();
+        handleSaveSchedule();
     }
 
 
@@ -374,18 +384,52 @@ export default function CalendarAdmin({ orgId: initialOrgId }: Props) {
 
                         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-lg)" }}>
                             {editingSchedule.id ? (
-                                <button
-                                    className="btn"
-                                    style={{ background: "var(--color-danger)", color: "white" }}
-                                    onClick={handleDeleteSchedule}
-                                    disabled={isSaving}
-                                >
-                                    削除
-                                </button>
+                                <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
+                                    {showDeleteConfirm ? (
+                                        <>
+                                            <span style={{ fontSize: "0.8rem", color: "var(--color-danger)", fontWeight: "bold" }}>本当に削除しますか？</span>
+                                            <button
+                                                type="button"
+                                                className="btn"
+                                                style={{ background: "var(--color-danger)", color: "white" }}
+                                                onClick={handleDeleteSchedule}
+                                                disabled={isSaving}
+                                            >
+                                                {isSaving ? "削除中..." : "はい、削除する"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}
+                                                disabled={isSaving}
+                                            >
+                                                やめる
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="btn"
+                                            style={{ background: "#eee", color: "var(--color-danger)", border: "1px solid var(--color-danger)" }}
+                                            onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
+                                            disabled={isSaving}
+                                        >
+                                            🗑️ 削除
+                                        </button>
+                                    )}
+                                </div>
                             ) : <div></div>}
                             <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-                                <button className="btn btn-secondary" onClick={closeModal} disabled={isSaving}>キャンセル</button>
-                                <button className="btn btn-primary" onClick={handleSaveSchedule} disabled={isSaving}>保存</button>
+                                <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={isSaving}>キャンセル</button>
+                                <button 
+                                    type="button" 
+                                    className="btn btn-primary" 
+                                    onClick={handleSaveClick} 
+                                    style={{ display: showDeleteConfirm ? "none" : "block" }} 
+                                    disabled={isSaving}
+                                >
+                                    {isSaving ? "保存中..." : "保存"}
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -72,6 +72,7 @@ interface DayRecord {
     leave: {
         leaveType: string;
         sickDayNumber: number | null;
+        status: string;
     } | null;
     effectiveSchedule?: {
         title: string;
@@ -141,6 +142,44 @@ export default function AdminPanel({ user }: Props) {
         if (staffId) setSelectedStaff(staffId);
         setAdminTab("attendance");
     }, [getEffectiveYearMonth]);
+
+    const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+    const fetchPendingRequests = useCallback(async () => {
+        try {
+            const res = await fetch("/api/leave/list?status=PENDING");
+            const data = await res.json();
+            if (data.leaveRequests) {
+                setPendingRequests(data.leaveRequests);
+            }
+        } catch (err) {
+            console.error("Failed to fetch pending requests:", err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchPendingRequests();
+    }, [fetchPendingRequests]);
+
+    const handleApproveLeave = async (requestId: string, action: "APPROVED" | "REJECTED") => {
+        try {
+            const res = await fetch("/api/leave/approve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ requestId, action }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAddMessage({ type: "success", text: action === "APPROVED" ? "承認しました ✅" : "却下しました ❌" });
+                fetchPendingRequests();
+                fetchHistory(); // 履歴も更新（必要なら）
+                setTimeout(() => setAddMessage(null), 3000);
+            } else {
+                setAddMessage({ type: "error", text: data.error || "処理に失敗しました" });
+            }
+        } catch {
+            setAddMessage({ type: "error", text: "ネットワークエラーが発生しました" });
+        }
+    };
     
     const [historyData, setHistoryData] = useState<HistoryData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -150,7 +189,7 @@ export default function AdminPanel({ user }: Props) {
     const [showAddForm, setShowAddForm] = useState(false);
     const [addLoading, setAddLoading] = useState(false);
     const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [adminTab, setAdminTab] = useState<"attendance" | "staff" | "settings" | "calendar" | "specialHours">("attendance");
+    const [adminTab, setAdminTab] = useState<"attendance" | "staff" | "settings" | "calendar" | "specialHours" | "leave_approval">("attendance");
     const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
     const [editMode, setEditMode] = useState(false);
     const [editStaff, setEditStaff] = useState<any>(null);
@@ -626,6 +665,28 @@ export default function AdminPanel({ user }: Props) {
 
             {/* ========== 勤怠管理タブ ========== */}
             {adminTab === "attendance" && (<>
+                {/* 休暇申請の通知 */}
+                {pendingRequests.length > 0 && (
+                    <div 
+                        onClick={() => setAdminTab("leave_approval")}
+                        style={{
+                            background: "rgba(231, 76, 60, 0.1)", border: "1px solid var(--color-danger)",
+                            borderRadius: "var(--radius-md)", padding: "var(--space-md)",
+                            marginBottom: "var(--space-md)", cursor: "pointer",
+                            display: "flex", alignItems: "center", gap: "var(--space-md)",
+                            animation: "pulse 2s infinite"
+                        }}
+                    >
+                        <span style={{ fontSize: "1.2rem" }}>📩</span>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, color: "var(--color-danger)" }}>承認待ちの休暇申請があります</div>
+                            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                現在、{pendingRequests.length}件の申請が届いています。クリックして承認・却下を確認してください。
+                            </div>
+                        </div>
+                        <span style={{ fontSize: "1.2rem", color: "var(--color-danger)" }}>›</span>
+                    </div>
+                )}
 
                 {/* コントロールバー */}
                 <div className={styles.controls}>
@@ -760,10 +821,12 @@ export default function AdminPanel({ user }: Props) {
                                         const isHighlighted = isLateMemo || isEarlyMemo;
 
                                         let note = "";
+                                        const isPending = day.leave?.status === "PENDING";
+                                        const leaveSuffix = isPending ? " (申請中)" : "";
                                         if (day.attendance?.dayType === "PUBLIC_HOLIDAY") note = "特休";
                                         if (day.attendance?.dayType === "SPECIAL_SICK") note = "感染特休";
-                                        if (day.leave?.leaveType === "FULL_DAY") note = "有休";
-                                        if (day.leave?.leaveType === "SPECIAL_SICK") note = `感染特休${day.leave.sickDayNumber || ""}`;
+                                        if (day.leave?.leaveType === "FULL_DAY") note = `有休${leaveSuffix}`;
+                                        if (day.leave?.leaveType === "SPECIAL_SICK") note = `感染特休${day.leave.sickDayNumber || ""}${leaveSuffix}`;
 
                                         return (
                                             <tr key={day.date}
@@ -1581,6 +1644,78 @@ export default function AdminPanel({ user }: Props) {
                     <AdminDutySettings />
                     <AdminAnnualLeaveGrant />
                     <AdminSpecialLeaveSettings />
+                </div>
+            )}
+
+            {/* ========== 休暇承認タブ ========== */}
+            {adminTab === "leave_approval" && (
+                <div style={{ background: "var(--bg-card)", border: "var(--border-light)", borderRadius: "var(--radius-lg)", padding: "var(--space-lg)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-md)" }}>
+                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700 }}>📩 承認待ちの休暇申請</h3>
+                        <span style={{ background: "var(--color-danger)", color: "white", padding: "2px 8px", borderRadius: "12px", fontSize: "0.8rem", fontWeight: "bold" }}>
+                            未承認: {pendingRequests.length}件
+                        </span>
+                    </div>
+
+                    {pendingRequests.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "var(--space-xl)", color: "var(--text-secondary)" }}>
+                            <div style={{ fontSize: "3rem", marginBottom: "var(--space-md)" }}>✅</div>
+                            <p>現在、承認待ちの申請はありません</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+                            {pendingRequests.map((req) => (
+                                <div key={req.id} style={{ 
+                                    background: "var(--bg-card-hover)", border: "var(--border-light)", 
+                                    borderRadius: "var(--radius-md)", padding: "var(--space-md)",
+                                    boxShadow: "var(--shadow-xs)",
+                                }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-md)", flexWrap: "wrap", marginBottom: "var(--space-md)" }}>
+                                        <div style={{ minWidth: "200px" }}>
+                                            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
+                                                No.{req.staff?.employeeNo} {req.staff?.name}
+                                            </div>
+                                            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                                                📅 {req.leaveDate} ({DAY_NAMES[new Date(req.leaveDate).getDay()]})
+                                            </div>
+                                        </div>
+                                        <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "flex-start" }}>
+                                            <button className="btn btn-primary" onClick={() => handleApproveLeave(req.id, "APPROVED")} style={{ padding: "var(--space-sm) var(--space-md)", fontSize: "0.9rem" }}>
+                                                承認する
+                                            </button>
+                                            <button className="btn btn-secondary" onClick={() => handleApproveLeave(req.id, "REJECTED")} style={{ padding: "var(--space-sm) var(--space-md)", fontSize: "0.9rem", color: "var(--color-danger)" }}>
+                                                却下
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-md)", background: "white", padding: "var(--space-sm)", borderRadius: "var(--radius-sm)", border: "1px solid #eee" }}>
+                                        <div>
+                                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block" }}>休暇種別</span>
+                                            <span style={{ fontWeight: 600 }}>
+                                                {req.leaveType === "FULL_DAY" ? "有休（全日）" :
+                                                 req.leaveType === "HALF_DAY" ? `半日休暇 (${req.halfDayPeriod === "AM" ? "午前" : "午後"})` :
+                                                 req.leaveType === "HOURLY" ? `時間有給 (${req.leaveHours}時間)` :
+                                                 req.leaveType === "SPECIAL_SICK" ? "感染症特休" : 
+                                                 req.leaveType === "NURSING" ? "看護休暇" :
+                                                 req.leaveType === "CARE" ? "介護休暇" : "特別休暇"}
+                                            </span>
+                                        </div>
+                                        {req.reason && (
+                                            <div>
+                                                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block" }}>理由</span>
+                                                <span style={{ fontSize: "0.9rem" }}>{req.reason}</span>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "block" }}>申請日時</span>
+                                            <span style={{ fontSize: "0.8rem" }}>{new Date(req.createdAt).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -30,6 +30,7 @@ interface DayRecord {
         leaveHours: number | null;
         sickDayNumber: number | null;
         reason: string | null;
+        status: string;
     } | null;
     effectiveSchedule: {
         title: string;
@@ -190,14 +191,17 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
     }
 
     function getDayTypeLabel(day: DayRecord): string {
+        const isPending = day.leave?.status === "PENDING";
+        const suffix = isPending ? " (申請中)" : "";
+
         if (day.attendance?.dayType === "PUBLIC_HOLIDAY") return "特休";
         if (day.attendance?.dayType === "SPECIAL_SICK") return "感染特休";
-        if (day.leave?.leaveType === "FULL_DAY") return "有休";
-        if (day.leave?.leaveType === "HALF_DAY") return "半休";
-        if (day.leave?.leaveType === "HOURLY") return `時間休 ${day.leave.leaveHours}h`;
-        if (day.leave?.leaveType === "SPECIAL_OTHER") return "特休";
+        if (day.leave?.leaveType === "FULL_DAY") return `有休${suffix}`;
+        if (day.leave?.leaveType === "HALF_DAY") return `半休${suffix}`;
+        if (day.leave?.leaveType === "HOURLY") return `時間休 ${day.leave.leaveHours}h${suffix}`;
+        if (day.leave?.leaveType === "SPECIAL_OTHER") return `特休${suffix}`;
         if (day.leave?.leaveType === "SPECIAL_SICK") {
-            return `感染特休${day.leave.sickDayNumber ? ` ${day.leave.sickDayNumber}/3` : ""}`;
+            return `感染特休${day.leave.sickDayNumber ? ` ${day.leave.sickDayNumber}/3` : ""}${suffix}`;
         }
         return "";
     }

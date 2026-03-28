@@ -27,13 +27,17 @@ export async function GET(req: NextRequest) {
     const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
     try {
+        // 同じ組織の全職員IDを取得
+        const staffInOrg = await prisma.staff.findMany({
+            where: { orgId: sessionData.orgId, status: { not: "RETIRED" } },
+            select: { id: true }
+        });
+        const staffIds = staffInOrg.map(s => s.id);
+
         // 同じ組織の全職員の承認済み休暇を取得（自分以外）
         const teamLeaves = await prisma.leaveRequest.findMany({
             where: {
-                staff: {
-                    orgId: sessionData.orgId,
-                },
-                staffId: { not: sessionData.id },
+                staffId: { in: staffIds, not: sessionData.id },
                 leaveDate: {
                     gte: startDate,
                     lte: endDate,

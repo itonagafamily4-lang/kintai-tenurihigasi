@@ -22,7 +22,20 @@ export async function GET(req: NextRequest) {
 
         if (isAdmin && !targetStaffId) {
             // 管理者で特定の職員指定なし → 同じ組織の全員分
-            whereClause.staff = { orgId: session.orgId };
+            // Firestore Proxy ではリレーションでのフィルタリングに対応していないため、対象の職員ID一覧を取得してフィルタリングする
+            const staffListInOrg = await prisma.staff.findMany({
+                where: { orgId: session.orgId, status: { not: "RETIRED" } },
+                select: { id: true }
+            });
+            const staffIds = staffListInOrg.map(s => s.id);
+            
+            // デバッグログ書き出し
+            try {
+                const fs = require('fs');
+                fs.appendFileSync('./.api_debug.log', `${new Date().toISOString()} [LeaveList GET] AdminOrgId: ${session.orgId}, StaffCount: ${staffIds.length}, StaffIds: ${JSON.stringify(staffIds)}\n`);
+            } catch (e) {}
+
+            whereClause.staffId = { in: staffIds };
         } else {
             // 管理者が特定職員を指定 or 一般職員は自分のみ
             whereClause.staffId = targetStaffId || session.id;
