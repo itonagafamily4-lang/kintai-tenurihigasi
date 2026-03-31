@@ -518,7 +518,7 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                                         step="0.25"
                                         min="0"
                                         className="input"
-                                        style={{ width: "80px" }}
+                                        style={{ width: "100px", textAlign: "center" }}
                                         value={editManualOvertime ?? ""}
                                         onChange={(e) => setEditManualOvertime(parseFloat(e.target.value) || 0)}
                                         disabled={!editIsOvertimeEdited}
