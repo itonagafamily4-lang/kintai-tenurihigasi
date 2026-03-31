@@ -975,7 +975,14 @@ export default function AdminPanel({ user }: Props) {
                             </div>
                         </div>
                     </>
-                ) : null}
+                ) : (
+                    <div style={{ textAlign: "center", padding: "var(--space-xl)", color: "var(--text-secondary)" }}>
+                        ⚠️ データが取得できませんでした。
+                    </div>
+                )}
+            </>
+            )}
+
             </>
             )}
 

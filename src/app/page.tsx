@@ -6,6 +6,7 @@ import AttendanceHistory from "@/components/AttendanceHistory";
 import Calendar from "@/components/Calendar";
 import LeaveManagement from "@/components/LeaveManagement";
 import AdminPanel from "@/components/AdminPanel";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export interface UserSession {
   id: string;
@@ -200,7 +201,9 @@ export default function Home() {
           <LeaveManagement user={user} />
         )}
         {currentView === "admin" && user.role === "ADMIN" && (
-          <AdminPanel user={user} />
+          <ErrorBoundary>
+            <AdminPanel user={user} />
+          </ErrorBoundary>
         )}
       </main>
 

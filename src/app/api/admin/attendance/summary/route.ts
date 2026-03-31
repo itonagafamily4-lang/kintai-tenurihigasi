@@ -81,10 +81,10 @@ export async function GET(req: NextRequest) {
             const lv = allLeaves.filter(l => l.staffId === staff.id);
 
             const workDays = att.filter(a => a.status === "COMPLETED").length;
-            const totalWorkHours = att.reduce((sum, a) => sum + a.actualWorkHours, 0);
-            const totalOvertime = att.reduce((sum, a) => sum + a.overtimeHours, 0);
-            const totalShortTime = att.reduce((sum, a) => sum + a.shortTimeValue, 0);
-            const totalMeals = att.reduce((sum, a) => sum + a.mealCount, 0);
+            const totalWorkHours = att.reduce((sum, a) => sum + (a.actualWorkHours || 0), 0);
+            const totalOvertime = att.reduce((sum, a) => sum + (a.overtimeHours || 0), 0);
+            const totalShortTime = att.reduce((sum, a) => sum + (a.shortTimeValue || 0), 0);
+            const totalMeals = att.reduce((sum, a) => sum + (a.mealCount || 0), 0);
 
             // 正式申請ベースのカウント
             const paidLeaveFormal = lv.filter(l => (l.leaveType === "FULL_DAY" || l.leaveType === "HALF_DAY") && l.status === "APPROVED").length;
