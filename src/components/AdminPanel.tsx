@@ -11,6 +11,7 @@ import CalendarAdmin from "./CalendarAdmin";
 import AdminAnnualLeaveGrant from "./AdminAnnualLeaveGrant";
 import AdminScheduleOverride from "./AdminScheduleOverride";
 import AdminDutySettings from "./AdminDutySettings";
+import AdminAttendanceSummary from "./AdminAttendanceSummary";
 
 interface StaffMember {
     id: string;
@@ -198,6 +199,7 @@ export default function AdminPanel({ user }: Props) {
     const [exportLoading, setExportLoading] = useState(false);
     const [importLoading, setImportLoading] = useState(false);
     const [showLeaveSummary, setShowLeaveSummary] = useState(false);
+    const [attendanceView, setAttendanceView] = useState<"individual" | "summary">("summary");
 
     // 一斉退勤用
     const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
@@ -704,6 +706,73 @@ export default function AdminPanel({ user }: Props) {
                     </div>
                 )}
 
+                {/* 表示切替：一覧 / 個別 */}
+                <div style={{
+                    display: "flex", gap: "4px", marginBottom: "var(--space-md)",
+                    background: "var(--bg-card)", borderRadius: "var(--radius-md)",
+                    padding: "3px", border: "var(--border-light)", width: "fit-content"
+                }}>
+                    <button
+                        onClick={() => setAttendanceView("summary")}
+                        style={{
+                            padding: "6px 16px", borderRadius: "var(--radius-sm)", border: "none",
+                            cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
+                            background: attendanceView === "summary" ? "var(--color-primary)" : "transparent",
+                            color: attendanceView === "summary" ? "white" : "var(--text-secondary)",
+                            transition: "all 0.15s ease",
+                        }}
+                    >
+                        📊 全職員一覧
+                    </button>
+                    <button
+                        onClick={() => setAttendanceView("individual")}
+                        style={{
+                            padding: "6px 16px", borderRadius: "var(--radius-sm)", border: "none",
+                            cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
+                            background: attendanceView === "individual" ? "var(--color-primary)" : "transparent",
+                            color: attendanceView === "individual" ? "white" : "var(--text-secondary)",
+                            transition: "all 0.15s ease",
+                        }}
+                    >
+                        👤 個別表示
+                    </button>
+                </div>
+
+                {/* CSV・Excel出力ボタン */}
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                    <button
+                        className={`btn btn-secondary ${styles.csvBtn}`}
+                        onClick={downloadCSV}
+                        disabled={csvLoading || excelLoading}
+                    >
+                        {csvLoading ? "出力中..." : "📥 CSV出力"}
+                    </button>
+                    <button
+                        className={`btn btn-primary ${styles.csvBtn}`}
+                        onClick={downloadExcel}
+                        disabled={csvLoading || excelLoading}
+                        style={{ background: '#217346', borderColor: '#217346', color: '#fff' }}
+                    >
+                        {excelLoading ? "出力中..." : "📊 Excel出力"}
+                    </button>
+                </div>
+
+                {/* ===== 全職員一覧ビュー ===== */}
+                {attendanceView === "summary" && (
+                    <AdminAttendanceSummary
+                        year={year}
+                        month={month}
+                        onSelectStaff={(staffId) => {
+                            setSelectedStaff(staffId);
+                            setAttendanceView("individual");
+                        }}
+                        onPrevMonth={prevMonth}
+                        onNextMonth={nextMonth}
+                    />
+                )}
+
+                {/* ===== 個別表示ビュー ===== */}
+                {attendanceView === "individual" && (<>
                 {/* コントロールバー */}
                 <div className={styles.controls}>
                     <div className={styles.controlRow}>
@@ -736,25 +805,6 @@ export default function AdminPanel({ user }: Props) {
                             </span>
                             <button className={styles.navBtn} onClick={nextMonth}>▶</button>
                         </div>
-                    </div>
-
-                    {/* CSV・Excel出力ボタン */}
-                    <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                        <button
-                            className={`btn btn-secondary ${styles.csvBtn}`}
-                            onClick={downloadCSV}
-                            disabled={csvLoading || excelLoading}
-                        >
-                            {csvLoading ? "出力中..." : "📥 CSV出力"}
-                        </button>
-                        <button
-                            className={`btn btn-primary ${styles.csvBtn}`}
-                            onClick={downloadExcel}
-                            disabled={csvLoading || excelLoading}
-                            style={{ background: '#217346', borderColor: '#217346', color: '#fff' }}
-                        >
-                            {excelLoading ? "出力中..." : "📊 Excel出力"}
-                        </button>
                     </div>
                 </div>
 
@@ -925,6 +975,7 @@ export default function AdminPanel({ user }: Props) {
                         </div>
                     </>
                 ) : null}
+                </>)}
             </>
             )}
 
