@@ -151,6 +151,8 @@ export async function POST(req: NextRequest) {
                 childcareLeaveStart: childcareLeaveStart || null,
                 childcareLeaveEnd: childcareLeaveEnd || null,
                 expectedReturnDate: expectedReturnDate || null,
+                isActive: true,
+                status: "ACTIVE",
                 passwordHash,
             },
         });

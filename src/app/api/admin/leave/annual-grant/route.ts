@@ -142,26 +142,43 @@ export async function POST(req: Request) {
             // Calculate carried over from previous year (targetYear - 1)
             const prevBalance = staff.leaveBalances.find((b: any) => b.fiscalYear === targetYear - 1);
             let carriedOverHours = 0;
-            if (prevBalance && prevBalance.remainingDays > 0) {
-                // 【重要】時効（2年）のため、繰り越せるのは前年の「新規付与分」が上限
-                carriedOverDays = Math.min(prevBalance.remainingDays, prevBalance.grantedDays);
-            }
-            // 前年度の時間有休残を繰り越し
+
+            // 前年度の日数＋時間を合算して繰り越し（時効考慮）
             if (prevBalance) {
                 const stdHours = staff.standardWorkHours || 8;
                 const hourlyUnit = Math.ceil(stdHours);
-                const hourlyLimit = hourlyUnit * 5;
-                const prevTimeUsed = prevBalance.timeLeaveUsedHours || 0;
-                const prevCarriedOverHours = prevBalance.carriedOverHours || 0;
-                // 前年度の時間有休残り = (上限 - 使用済) + 前年繰越時間
-                const remainingHourlyLeave = Math.max(0, hourlyLimit - prevTimeUsed) + prevCarriedOverHours;
-                // 繰越時間は 0～7 に収める（8時間以上は日数に繰り上げ）
-                if (remainingHourlyLeave >= 8) {
-                    const extraDays = Math.floor(remainingHourlyLeave / 8);
-                    carriedOverDays += extraDays;
-                    carriedOverHours = remainingHourlyLeave % 8;
+
+                // 残日数（端数含む）＋ 繰越時間 を日単位に換算
+                const actualRemainingDays = (prevBalance.remainingDays || 0) + ((prevBalance.carriedOverHours || 0) / hourlyUnit);
+                
+                if (actualRemainingDays > 0) {
+                    // 【重要】時効（2年）のため、繰り越せるのは前年の「新規付与分」が上限
+                    const carryOverLimit = prevBalance.grantedDays;
+                    let daysToCarry = Math.min(actualRemainingDays, carryOverLimit);
+
+                    carriedOverDays = Math.floor(daysToCarry);
+                    carriedOverHours = Math.round((daysToCarry - carriedOverDays) * hourlyUnit);
+
+                    if (carriedOverHours >= hourlyUnit) {
+                        carriedOverDays += Math.floor(carriedOverHours / hourlyUnit);
+                        carriedOverHours = carriedOverHours % hourlyUnit;
+                    }
+                }
+            }
+
+            // 40日キャップの適用処理
+            const stdHoursForCap = Math.ceil(staff.standardWorkHours || 8);
+            let rawTotalDays = grantedDays + carriedOverDays + (carriedOverHours / stdHoursForCap);
+            if (rawTotalDays > 40) {
+                // 上限を超える場合、繰越分を調整する
+                const maxCarriedOverRaw = 40 - grantedDays;
+                if (maxCarriedOverRaw <= 0) {
+                    carriedOverDays = 0;
+                    carriedOverHours = 0;
                 } else {
-                    carriedOverHours = remainingHourlyLeave;
+                    carriedOverDays = Math.floor(maxCarriedOverRaw);
+                    carriedOverHours = Math.round((maxCarriedOverRaw - carriedOverDays) * stdHoursForCap);
+                    if (carriedOverHours < 0) carriedOverHours = 0;
                 }
             }
 
@@ -180,7 +197,8 @@ export async function POST(req: Request) {
                 grantedDays,
                 carriedOverDays,
                 carriedOverHours,
-                totalDays: grantedDays + carriedOverDays,
+                totalDays: grantedDays + carriedOverDays, // ここはキャップ適用済みの値の純粋な合算
+                hourlyLimit: Math.ceil(staff.standardWorkHours || 8) * 5,
                 currentUsedDays,
                 currentTimeLeaveUsedHours
             });
@@ -192,6 +210,7 @@ export async function POST(req: Request) {
         if (action === "preview") {
             return NextResponse.json({
                 success: true,
+                antennaTest: "HELLO FROM ANTIGRAVITY",
                 previewData
             });
         }
@@ -202,7 +221,7 @@ export async function POST(req: Request) {
             let totalDaysGranted = 0;
 
             for (const item of previewData) {
-                if (item.grantedDays > 0 || item.carriedOverDays > 0) {
+                if (item.grantedDays > 0 || item.carriedOverDays > 0 || item.carriedOverHours > 0) {
                     const totalDays = item.grantedDays + item.carriedOverDays;
                     const remainingDaysForCreate = totalDays;
                     const remainingDaysForUpdate = Math.max(0, totalDays - item.currentUsedDays);
@@ -235,7 +254,6 @@ export async function POST(req: Request) {
                             totalDays: totalDays,
                             remainingDays: remainingDaysForUpdate,
                             mandatoryTakeDays: mandatoryTakeDays
-                            // usedDays と timeLeaveUsedHours は既存の利用実績を保持するためリセットしない
                         }
                     });
 

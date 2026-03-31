@@ -13,6 +13,7 @@ interface LeaveBalance {
     totalDays: number;
     usedDays: number;
     remainingDays: number;
+    carriedOverHours: number;
     timeLeaveUsedHours: number;
     staff: {
         standardWorkHours: number;
@@ -313,8 +314,18 @@ export default function LeaveManagement({ user }: LeaveManagementProps) {
                         <span className={styles.balanceFiscalYear}>{fiscalYear}年度</span>
                     </div>
                     <div className={styles.balanceMain}>
-                        <span className={styles.balanceNumber}>{balance.remainingDays}</span>
-                        <span className={styles.balanceUnit}>日 / {balance.totalDays}日</span>
+                        <span className={styles.balanceNumber}>
+                            {Math.floor(balance.remainingDays)}
+                        </span>
+                        {Math.round((balance.remainingDays % 1) * (balance.staff?.standardWorkHours || 8)) > 0 && (
+                            <span style={{ fontSize: "1.2rem", margin: "0 4px" }}>
+                                日 + {Math.round((balance.remainingDays % 1) * (balance.staff?.standardWorkHours || 8))}時間
+                            </span>
+                        )}
+                        {Math.round((balance.remainingDays % 1) * (balance.staff?.standardWorkHours || 8)) === 0 && (
+                             <span className={styles.balanceUnit}>日</span>
+                        )}
+                        <span className={styles.balanceUnit}> / {balance.totalDays}日</span>
                     </div>
                     <div className={styles.balanceBar}>
                         <div

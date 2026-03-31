@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
-import { getJstDateString, getJstTime } from '@/lib/date-utils';
+import { getJstDateString, getJstTime, roundAttendanceTime } from '@/lib/date-utils';
+import { getEffectiveSchedule } from '@/lib/engine/calculator';
 
 async function getSessionUser() {
     const cookieStore = await cookies();
@@ -26,7 +27,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
         }
 
-        const timeStr = getJstTime();
+        let timeStr = getJstTime();
+        
+        // 規定時刻を取得して丸め処理を適用
+        const effective = await getEffectiveSchedule(user.id, today);
+        if (effective && effective.startTime) {
+            timeStr = roundAttendanceTime(timeStr, 'IN', effective.startTime);
+        }
 
         // すでにレコードがある場合（時間有休が先に承認されている場合など）
         const existing = await prisma.attendance.findUnique({

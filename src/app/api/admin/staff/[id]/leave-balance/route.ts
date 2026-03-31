@@ -47,15 +47,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const body = await req.json();
         const { grantedDays, carriedOverDays, carriedOverHours: rawCarriedOverHours } = body;
 
-        // 時間有休の繰り上げ処理: 8時間以上 → 1日に繰り上げ
+        const fiscalYear = getFiscalYear(new Date());
+
+        const existing = await prisma.leaveBalance.findUnique({
+            where: { staffId_fiscalYear: { staffId, fiscalYear } },
+            include: { staff: true }
+        });
+
+        const staffToUse = existing?.staff || await prisma.staff.findUnique({ where: { id: staffId } });
+        const stdHours = staffToUse?.standardWorkHours || 8;
+        const hourlyLeaveUnit = Math.ceil(stdHours);
+
+        // 時間有休の繰り上げ処理: 標準労働時間単位の時間を超えた場合は1日に繰り上げ
         let parsedCarriedOverHours = parseFloat(rawCarriedOverHours || "0");
         let adjustedCarriedOverDays = parseFloat(carriedOverDays);
-        if (parsedCarriedOverHours >= 8) {
-            const extraDays = Math.floor(parsedCarriedOverHours / 8);
+        if (parsedCarriedOverHours >= hourlyLeaveUnit) {
+            const extraDays = Math.floor(parsedCarriedOverHours / hourlyLeaveUnit);
             adjustedCarriedOverDays += extraDays;
-            parsedCarriedOverHours = parsedCarriedOverHours % 8;
+            parsedCarriedOverHours = parsedCarriedOverHours % hourlyLeaveUnit;
         }
-        parsedCarriedOverHours = Math.max(0, Math.min(7, Math.round(parsedCarriedOverHours)));
+        parsedCarriedOverHours = Math.max(0, Math.min(hourlyLeaveUnit - 1, Math.round(parsedCarriedOverHours)));
 
         const newGrantedDays = parseFloat(grantedDays);
         const newCarriedOverDays = adjustedCarriedOverDays;
@@ -63,11 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "無効な日数です" }, { status: 400 });
         }
 
-        const fiscalYear = getFiscalYear(new Date());
-
-        const existing = await prisma.leaveBalance.findUnique({
-            where: { staffId_fiscalYear: { staffId, fiscalYear } }
-        });
+        // already fetched inside `existing` query above
 
         let balance;
         if (existing) {

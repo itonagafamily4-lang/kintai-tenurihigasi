@@ -59,9 +59,12 @@ export default function AdminStaffLeaveBalance({ staffId }: Props) {
     // 時間有休の自動繰り上げ処理
     function handleHoursChange(value: string) {
         const hours = parseInt(value) || 0;
-        if (hours >= 8) {
-            const extraDays = Math.floor(hours / 8);
-            const remainingHours = hours % 8;
+        const stdHours = balance?.staff?.standardWorkHours || 8;
+        const hourlyLeaveUnit = Math.ceil(stdHours);
+
+        if (hours >= hourlyLeaveUnit) {
+            const extraDays = Math.floor(hours / hourlyLeaveUnit);
+            const remainingHours = hours % hourlyLeaveUnit;
             setCarriedOverDays((prev) => (parseFloat(prev) + extraDays).toString());
             setCarriedOverHours(remainingHours.toString());
             setMessage({ type: "success", text: `${hours}時間 → ${extraDays}日 + ${remainingHours}時間に自動変換しました` });
@@ -139,7 +142,7 @@ export default function AdminStaffLeaveBalance({ staffId }: Props) {
                                 type="number"
                                 step="1"
                                 min="0"
-                                max="7"
+                                max={hourlyLeaveUnit - 1}
                                 value={carriedOverHours}
                                 onChange={(e) => handleHoursChange(e.target.value)}
                                 style={{ width: "80px", borderColor: "var(--color-primary-light)" }}
@@ -147,7 +150,7 @@ export default function AdminStaffLeaveBalance({ staffId }: Props) {
                             <span style={{ lineHeight: "40px" }}>時間</span>
                         </div>
                         <p style={{ fontSize: "10px", color: "var(--text-secondary)", margin: "4px 0 0" }}>
-                            ※8時間以上は自動で1日に繰り上げ
+                            ※{hourlyLeaveUnit}時間以上は自動で1日に繰り上げ
                         </p>
                     </div>
                     <div style={{ marginTop: "auto", marginBottom: "8px" }}>

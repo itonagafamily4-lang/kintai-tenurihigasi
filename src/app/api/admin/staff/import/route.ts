@@ -127,7 +127,8 @@ export async function POST(req: NextRequest) {
                         breakTimeHours,
                         breakThresholdHours,
                         joinDate,
-                        isActive
+                        isActive,
+                        status: "ACTIVE"
                     }
                 });
                 successCount++;

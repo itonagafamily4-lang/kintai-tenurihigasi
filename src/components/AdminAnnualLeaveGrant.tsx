@@ -12,6 +12,7 @@ interface GrantPreview {
     carriedOverDays: number;
     carriedOverHours: number;
     totalDays: number;
+    hourlyLimit?: number; // Added from API
 }
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
@@ -124,6 +125,7 @@ export default function AdminAnnualLeaveGrant() {
                                     <th style={{ padding: "var(--space-sm)", textAlign: "right" }}>新規付与</th>
                                     <th style={{ padding: "var(--space-sm)", textAlign: "right" }}>昨年度繰越</th>
                                     <th style={{ padding: "var(--space-sm)", textAlign: "right", color: "var(--color-primary)" }}><b>更新後残日数</b></th>
+                                    <th style={{ padding: "var(--space-sm)", textAlign: "right", color: "var(--color-primary-dark)" }}>更新後 時間有休枠</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -152,7 +154,13 @@ export default function AdminAnnualLeaveGrant() {
                                             {d.carriedOverDays > 0 ? `${d.carriedOverDays}日` : "0日"}
                                             {d.carriedOverHours > 0 && <span style={{ color: "var(--color-primary)", marginLeft: "4px" }}>+{d.carriedOverHours}h</span>}
                                         </td>
-                                        <td style={{ padding: "var(--space-sm)", textAlign: "right", fontWeight: "bold", fontSize: "1.1em", color: "var(--color-primary)" }}>{d.totalDays}日</td>
+                                        <td style={{ padding: "var(--space-sm)", textAlign: "right", fontWeight: "bold", fontSize: "1.1em", color: "var(--color-primary)" }}>
+                                            {d.totalDays}日
+                                            {d.carriedOverHours > 0 && <span style={{ fontSize: "0.8em", marginLeft: "4px" }}>+{d.carriedOverHours}h</span>}
+                                        </td>
+                                        <td style={{ padding: "var(--space-sm)", textAlign: "right", color: "var(--color-primary-dark)", fontSize: "0.9em" }}>
+                                            {d.hourlyLimit}時間
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

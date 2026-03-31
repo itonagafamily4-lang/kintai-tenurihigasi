@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { calculateAttendance, getEffectiveSchedule, type EmploymentType } from '@/lib/engine/calculator';
-import { getJstDateString, getJstTime } from '@/lib/date-utils';
+import { getJstDateString, getJstTime, roundAttendanceTime } from '@/lib/date-utils';
 
 async function getSessionUser() {
     const cookieStore = await cookies();
@@ -85,10 +85,14 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // 退勤時間の丸め処理を適用
+        const finalBaseEnd = baseEnd || effective?.endTime || '17:30';
+        const roundedTimeStr = roundAttendanceTime(timeStr, 'OUT', finalBaseEnd);
+
         // 勤務計算エンジンを実行
         const result = calculateAttendance(
             existing.clockIn!,
-            timeStr,
+            roundedTimeStr,
             user.employmentType as EmploymentType,
             calcSettings,
             baseStart,
@@ -100,7 +104,7 @@ export async function POST(request: NextRequest) {
         const attendance = await prisma.attendance.update({
             where: { id: existing.id },
             data: {
-                clockOut: timeStr,
+                clockOut: roundedTimeStr,
                 actualWorkHours: result.actualWorkHours,
                 breakHours: result.breakHours,
                 overtimeHours: result.overtimeHours,

@@ -241,21 +241,26 @@ export default function AdminPanel({ user }: Props) {
         setLoading(true);
         setFetchError(null);
         try {
-            const res = await fetch("/api/admin/staff");
+            // キャッシュ回避のためタイムスタンプを付与
+            const res = await fetch(`/api/admin/staff?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (res.ok && data.staff) {
                 const list = data.staff;
+                console.log(`[fetchStaffList] Loaded ${list.length} staff members.`);
                 setStaffList(list);
                 // 選択中の職員がいない場合のみ、最初の職員を自動選択
                 setSelectedStaff(prev => prev || (list.length > 0 ? list[0].id : ""));
             } else {
-                setFetchError(data.error || "職員名簿の取得に失敗しました");
+                const errorDetail = data.error || "職員名簿の取得に失敗しました";
+                console.error("[fetchStaffList] API Error:", errorDetail);
+                setFetchError(errorDetail);
             }
-        } catch {
+        } catch (err) {
+            console.error("[fetchStaffList] Network Error:", err);
             setFetchError("ネットワークエラーが発生しました");
         }
         setLoading(false);
-    }, []); // 依存関係を空にして、職員選択ごとの再取得を防止
+    }, []);
 
     useEffect(() => {
         fetchStaffList();
@@ -407,6 +412,7 @@ export default function AdminPanel({ user }: Props) {
         setAddLoading(true);
         setAddMessage(null);
         try {
+            console.log("Adding staff:", newStaff);
             const res = await fetch("/api/admin/staff", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -415,6 +421,11 @@ export default function AdminPanel({ user }: Props) {
             const data = await res.json();
             if (data.success) {
                 setAddMessage({ type: "success", text: data.message });
+                alert("✅ " + data.message);
+                
+                // 登録後に「全員」フィルタに戻すことで、新規職員をすぐ確認できるようにする
+                setFilterType("ALL");
+                
                 setNewStaff({
                     name: "", email: "", loginId: "", employeeNo: "", employmentType: "REGULAR", jobTitle: "", assignedClass: "", role: "STAFF",
                     defaultStart: "08:30", defaultEnd: "17:30", standardWorkHours: 8.0,
@@ -424,11 +435,16 @@ export default function AdminPanel({ user }: Props) {
                 });
                 setShowAddForm(false);
                 await fetchStaffList();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
-                setAddMessage({ type: "error", text: data.error });
+                const errorMsg = data.error || "登録に失敗しました";
+                setAddMessage({ type: "error", text: errorMsg });
+                alert("⚠️ エラー: " + errorMsg);
             }
-        } catch {
-            setAddMessage({ type: "error", text: "ネットワークエラー" });
+        } catch (err) {
+            console.error("handleAddStaff error:", err);
+            setAddMessage({ type: "error", text: "ネットワークエラーが発生しました" });
+            alert("⚠️ ネットワークエラーが発生しました。通信状況を確認してください。");
         }
         setAddLoading(false);
     }
@@ -1487,11 +1503,25 @@ export default function AdminPanel({ user }: Props) {
                                             </select>
                                         </div>
                                     </div>
-                                    <div style={{ marginTop: "var(--space-lg)", display: "flex", gap: "var(--space-md)", justifyContent: "flex-end" }}>
-                                        <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm(false)}>キャンセル</button>
-                                        <button type="submit" className="btn btn-primary" disabled={addLoading}>
-                                            {addLoading ? "登録中..." : "➕ 登録する"}
-                                        </button>
+                                    <div style={{ marginTop: "var(--space-lg)", display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+                                        {addMessage && addMessage.type === "error" && (
+                                            <div style={{
+                                                padding: "var(--space-sm) var(--space-md)",
+                                                borderRadius: "var(--radius-md)",
+                                                background: "var(--color-danger-bg)",
+                                                color: "var(--color-danger)",
+                                                fontSize: "var(--font-size-sm)", fontWeight: 600,
+                                                border: "1px solid var(--color-danger)"
+                                            }}>
+                                                ⚠️ {addMessage.text}
+                                            </div>
+                                        )}
+                                        <div style={{ display: "flex", gap: "var(--space-md)", justifyContent: "flex-end" }}>
+                                            <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm(false)}>キャンセル</button>
+                                            <button type="submit" className="btn btn-primary" disabled={addLoading} style={{ minWidth: "150px" }}>
+                                                {addLoading ? "保存中..." : "💾 登録を保存"}
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
                             )}

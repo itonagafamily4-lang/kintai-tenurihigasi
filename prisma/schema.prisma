@@ -139,6 +139,7 @@ model LeaveBalance {
   remainingDays      Float    @default(0)
   timeLeaveUsedHours Float    @default(0)
   mandatoryTakeDays  Float    @default(0)
+  carriedOverHours   Float    @default(0)
   updatedAt          DateTime @updatedAt
   staff              Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
