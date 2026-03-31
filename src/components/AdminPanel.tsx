@@ -682,8 +682,9 @@ export default function AdminPanel({ user }: Props) {
             </div>
 
             {/* ========== 勤怠管理タブ ========== */}
-            {adminTab === "attendance" && (<>
-                {/* 休暇申請の通知 */}
+            {adminTab === "attendance" && (
+                <>
+                    {/* 休暇申請の通知 */}
                 {pendingRequests.length > 0 && (
                     <div 
                         onClick={() => setAdminTab("leave_approval")}
@@ -975,7 +976,6 @@ export default function AdminPanel({ user }: Props) {
                         </div>
                     </>
                 ) : null}
-                </>)}
             </>
             )}
 

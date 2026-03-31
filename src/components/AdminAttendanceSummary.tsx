@@ -100,16 +100,16 @@ export default function AdminAttendanceSummary({ year, month, onSelectStaff, onP
     // グループ別の合計行
     const totals = useMemo(() => {
         return {
-            workDays: filtered.reduce((s, r) => s + r.workDays, 0),
-            totalWorkHours: filtered.reduce((s, r) => s + r.totalWorkHours, 0),
-            totalOvertime: filtered.reduce((s, r) => s + r.totalOvertime, 0),
-            paidLeave: filtered.reduce((s, r) => s + r.paidLeave, 0),
-            hourlyLeave: filtered.reduce((s, r) => s + r.hourlyLeave, 0),
-            publicHolidays: filtered.reduce((s, r) => s + r.publicHolidays, 0),
-            sickLeave: filtered.reduce((s, r) => s + r.sickLeave, 0),
-            totalMeals: filtered.reduce((s, r) => s + r.totalMeals, 0),
-            lateCount: filtered.reduce((s, r) => s + r.lateCount, 0),
-            earlyLeaveCount: filtered.reduce((s, r) => s + r.earlyLeaveCount, 0),
+            workDays: filtered.reduce((s, r) => s + (r.workDays || 0), 0),
+            totalWorkHours: filtered.reduce((s, r) => s + (r.totalWorkHours || 0), 0),
+            totalOvertime: filtered.reduce((s, r) => s + (r.totalOvertime || 0), 0),
+            paidLeave: filtered.reduce((s, r) => s + (r.paidLeave || 0), 0),
+            hourlyLeave: filtered.reduce((s, r) => s + (r.hourlyLeave || 0), 0),
+            publicHolidays: filtered.reduce((s, r) => s + (r.publicHolidays || 0), 0),
+            sickLeave: filtered.reduce((s, r) => s + (r.sickLeave || 0), 0),
+            totalMeals: filtered.reduce((s, r) => s + (r.totalMeals || 0), 0),
+            lateCount: filtered.reduce((s, r) => s + (r.lateCount || 0), 0),
+            earlyLeaveCount: filtered.reduce((s, r) => s + (r.earlyLeaveCount || 0), 0),
         };
     }, [filtered]);
 
@@ -260,26 +260,26 @@ export default function AdminAttendanceSummary({ year, month, onSelectStaff, onP
                                             {EMPLOYMENT_LABELS[row.employmentType] || row.employmentType}
                                         </span>
                                     </td>
-                                    <td>{row.workDays}日</td>
-                                    <td>{row.totalWorkHours.toFixed(1)}h</td>
-                                    <td style={row.totalOvertime > 0 ? {
+                                    <td>{(row.workDays || 0)}日</td>
+                                    <td>{(row.totalWorkHours || 0).toFixed(1)}h</td>
+                                    <td style={(row.totalOvertime || 0) > 0 ? {
                                         color: "var(--color-danger)", fontWeight: 700
                                     } : {}}>
-                                        {row.totalOvertime > 0 ? row.totalOvertime.toFixed(2) + "h" : "—"}
+                                        {(row.totalOvertime || 0) > 0 ? (row.totalOvertime || 0).toFixed(2) + "h" : "—"}
                                     </td>
-                                    <td>{row.paidLeave > 0 ? row.paidLeave + "日" : "—"}</td>
-                                    <td>{row.hourlyLeave > 0 ? row.hourlyLeave + "h" : "—"}</td>
-                                    <td>{row.publicHolidays > 0 ? row.publicHolidays + "日" : "—"}</td>
-                                    <td>{row.totalMeals > 0 ? row.totalMeals + "回" : "—"}</td>
-                                    <td style={row.lateCount > 0 ? {
+                                    <td>{(row.paidLeave || 0) > 0 ? (row.paidLeave || 0) + "日" : "—"}</td>
+                                    <td>{(row.hourlyLeave || 0) > 0 ? (row.hourlyLeave || 0) + "h" : "—"}</td>
+                                    <td>{(row.publicHolidays || 0) > 0 ? (row.publicHolidays || 0) + "日" : "—"}</td>
+                                    <td>{(row.totalMeals || 0) > 0 ? (row.totalMeals || 0) + "回" : "—"}</td>
+                                    <td style={(row.lateCount || 0) > 0 ? {
                                         color: "var(--color-danger)", fontWeight: 700
                                     } : {}}>
-                                        {row.lateCount > 0 ? row.lateCount + "回" : "—"}
+                                        {(row.lateCount || 0) > 0 ? (row.lateCount || 0) + "回" : "—"}
                                     </td>
-                                    <td style={row.earlyLeaveCount > 0 ? {
+                                    <td style={(row.earlyLeaveCount || 0) > 0 ? {
                                         color: "var(--color-danger)", fontWeight: 700
                                     } : {}}>
-                                        {row.earlyLeaveCount > 0 ? row.earlyLeaveCount + "回" : "—"}
+                                        {(row.earlyLeaveCount || 0) > 0 ? (row.earlyLeaveCount || 0) + "回" : "—"}
                                     </td>
                                 </tr>
                             ))
@@ -291,16 +291,16 @@ export default function AdminAttendanceSummary({ year, month, onSelectStaff, onP
                             <tr style={{ fontWeight: 700, background: "var(--bg-card-hover)", borderTop: "2px solid var(--border-light)" }}>
                                 <td colSpan={3} style={{ textAlign: "right" }}>合計 ({filtered.length}名)</td>
                                 <td>{totals.workDays}日</td>
-                                <td>{totals.totalWorkHours.toFixed(1)}h</td>
-                                <td style={totals.totalOvertime > 0 ? { color: "var(--color-danger)" } : {}}>
-                                    {totals.totalOvertime.toFixed(2)}h
+                                <td>{(totals.totalWorkHours || 0).toFixed(1)}h</td>
+                                <td style={(totals.totalOvertime || 0) > 0 ? { color: "var(--color-danger)" } : {}}>
+                                    {(totals.totalOvertime || 0).toFixed(2)}h
                                 </td>
-                                <td>{totals.paidLeave > 0 ? totals.paidLeave + "日" : "—"}</td>
-                                <td>{totals.hourlyLeave > 0 ? totals.hourlyLeave + "h" : "—"}</td>
-                                <td>{totals.publicHolidays > 0 ? totals.publicHolidays + "日" : "—"}</td>
+                                <td>{(totals.paidLeave || 0) > 0 ? totals.paidLeave + "日" : "—"}</td>
+                                <td>{(totals.hourlyLeave || 0) > 0 ? totals.hourlyLeave + "h" : "—"}</td>
+                                <td>{(totals.publicHolidays || 0) > 0 ? totals.publicHolidays + "日" : "—"}</td>
                                 <td>{totals.totalMeals}回</td>
-                                <td>{totals.lateCount > 0 ? totals.lateCount + "回" : "—"}</td>
-                                <td>{totals.earlyLeaveCount > 0 ? totals.earlyLeaveCount + "回" : "—"}</td>
+                                <td>{(totals.lateCount || 0) > 0 ? totals.lateCount + "回" : "—"}</td>
+                                <td>{(totals.earlyLeaveCount || 0) > 0 ? totals.earlyLeaveCount + "回" : "—"}</td>
                             </tr>
                         </tfoot>
                     )}
