@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
         if (!sessionCookie) return NextResponse.json({ error: "未認証" }, { status: 401 });
 
         const session = JSON.parse(sessionCookie.value);
-        const { date, clockIn, clockOut, reason, mealCount, memo, overtimeReason, overtimeMemo, dutyType } = await req.json();
+        const { date, clockIn, clockOut, reason, mealCount, memo, overtimeReason, overtimeMemo, dutyType, manualOvertimeHours, isOvertimeEdited } = await req.json();
 
         if (!date) return NextResponse.json({ error: "日付が必要です" }, { status: 400 });
 
@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
             clockOut,
             actualWorkHours: calcResult.actualWorkHours,
             breakHours: calcResult.breakHours,
-            overtimeHours: calcResult.overtimeHours,
+            overtimeHours: isOvertimeEdited ? (typeof manualOvertimeHours === 'number' ? manualOvertimeHours : calcResult.overtimeHours) : calcResult.overtimeHours,
+            isOvertimeEdited: isOvertimeEdited || false,
             shortTimeValue: calcResult.shortTimeValue,
             overtimeReason: overtimeReason !== undefined ? overtimeReason : record?.overtimeReason,
             overtimeMemo: overtimeMemo !== undefined ? overtimeMemo : record?.overtimeMemo,

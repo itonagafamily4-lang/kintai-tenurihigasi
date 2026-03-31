@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { getEffectiveSchedule } from "@/lib/engine/calculator";
+import { getEffectiveSchedule, extractLeaveFromMemo } from "@/lib/engine/calculator";
 import { getJstDate } from "@/lib/date-utils";
 
 // 締め日に基づいた期間を計算
@@ -180,18 +180,38 @@ export async function GET(req: NextRequest) {
             current.setDate(current.getDate() + 1);
         }
 
-        // 集計
+        // 休暇の集計（申請フォーム優先、申請がなければ備考をパースして追加）
+        let extraPaidLeave = 0;
+        let extraPublicHolidays = 0;
+        let extraHourlyLeave = 0;
+
+        attendances.forEach(a => {
+            const dateStr = a.workDate;
+            const hasFormalLeave = leaveRequests.some(l => l.leaveDate === dateStr && l.status === "APPROVED");
+            
+            if (!hasFormalLeave && a.memo) {
+                const extracted = extractLeaveFromMemo(a.memo);
+                if (extracted?.type === 'FULL_DAY') {
+                    extraPaidLeave += 1;
+                } else if (extracted?.type === 'SPECIAL') {
+                    extraPublicHolidays += 1;
+                } else if (extracted?.type === 'HOURLY' && extracted.hours) {
+                    extraHourlyLeave += extracted.hours;
+                }
+            }
+        });
+
         const summary = {
             workDays: attendances.filter((a) => a.status === "COMPLETED").length,
             totalWorkHours: attendances.reduce((sum, a) => sum + ((a as any).actualWorkHours || 0), 0),
             totalOvertime: attendances.reduce((sum, a) => sum + ((a as any).overtimeHours || 0), 0),
             totalShortTime: attendances.reduce((sum, a) => sum + ((a as any).shortTimeValue || 0), 0),
-            publicHolidays: attendances.filter((a) => a.dayType === "PUBLIC_HOLIDAY").length,
-            paidLeave: leaveRequests.filter((l) => l.leaveType === "FULL_DAY" || l.leaveType === "HALF_DAY").length,
+            publicHolidays: attendances.filter((a) => a.dayType === "PUBLIC_HOLIDAY").length + extraPublicHolidays,
+            paidLeave: leaveRequests.filter((l) => l.leaveType === "FULL_DAY" || l.leaveType === "HALF_DAY").length + extraPaidLeave,
             sickLeave: leaveRequests.filter((l) => l.leaveType === "SPECIAL_SICK").length,
             nursingLeave: leaveRequests.filter((l) => l.leaveType === "NURSING").length,
             careLeave: leaveRequests.filter((l) => l.leaveType === "CARE").length,
-            totalHourlyLeave: leaveRequests.filter(l => l.leaveType === "HOURLY").reduce((sum, l) => sum + (l.leaveHours || 0), 0),
+            totalHourlyLeave: leaveRequests.filter(l => l.leaveType === "HOURLY").reduce((sum, l) => sum + (l.leaveHours || 0), 0) + extraHourlyLeave,
             totalMeals: attendances.reduce((sum, a) => sum + ((a as any).mealCount || 0), 0),
             lateCount: attendances.filter(a => a.memo && a.memo.includes("遅刻")).length,
             earlyLeaveCount: attendances.filter(a => a.memo && a.memo.includes("早退")).length,

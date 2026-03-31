@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { getFiscalYear } from "@/lib/engine/calculator";
+import { getFiscalYear, extractLeaveFromMemo } from "@/lib/engine/calculator";
 
 export async function GET() {
     try {
@@ -76,6 +76,50 @@ export async function GET() {
             pending: leaveRequests.filter((l) => l.status === "PENDING").length,
         };
 
+        // 備考欄からの休暇情報を動的に加算（正式申請が優先）
+        const attendances = await prisma.attendance.findMany({
+            where: {
+                staffId: session.id,
+                workDate: { gte: startDate, lte: endDate },
+            }
+        });
+
+        const hourUnit = Math.ceil(balance.staff?.standardWorkHours || 8.0);
+        let extraPaidLeave = 0;
+        let extraPublicHolidays = 0;
+        let extraHourlyLeave = 0;
+
+        attendances.forEach(a => {
+            const dateStr = a.workDate;
+            const hasFormalLeave = leaveRequests.some(l => l.leaveDate === dateStr && l.status === "APPROVED");
+            
+            if (!hasFormalLeave && a.memo) {
+                const extracted = extractLeaveFromMemo(a.memo);
+                if (extracted?.type === 'FULL_DAY') {
+                    extraPaidLeave += 1;
+                } else if (extracted?.type === 'SPECIAL') {
+                    extraPublicHolidays += 1;
+                } else if (extracted?.type === 'HOURLY' && extracted.hours) {
+                    extraHourlyLeave += extracted.hours;
+                }
+            }
+        });
+
+        breakdown.fullDay += extraPaidLeave;
+        breakdown.hourly += extraHourlyLeave;
+
+        // 残高から動的に差し引く
+        let adjustedRemaining = balance.remainingDays - extraPaidLeave - (extraHourlyLeave / hourUnit);
+        let adjustedTimeUsed = balance.timeLeaveUsedHours + extraHourlyLeave;
+        let adjustedUsed = balance.usedDays + extraPaidLeave + (extraHourlyLeave / hourUnit);
+
+        const returnBalance = {
+            ...balance,
+            remainingDays: adjustedRemaining,
+            timeLeaveUsedHours: adjustedTimeUsed,
+            usedDays: adjustedUsed
+        };
+
         // 特別休暇の残高を取得
         const specialBalances = await prisma.specialLeaveBalance.findMany({
             where: {
@@ -85,7 +129,7 @@ export async function GET() {
         });
 
         return NextResponse.json({
-            balance,
+            balance: returnBalance,
             breakdown,
             specialBalances,
             fiscalYear,

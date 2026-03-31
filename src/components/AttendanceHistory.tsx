@@ -23,6 +23,7 @@ interface DayRecord {
         specialLeaveNote: string | null;
         isLate: boolean;
         isEarlyLeave: boolean;
+        isOvertimeEdited: boolean;
         dutyType?: string | null;
     } | null;
     leave: {
@@ -124,6 +125,8 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
     const [editOvertimeReason, setEditOvertimeReason] = useState("");
     const [editDutyType, setEditDutyType] = useState("NONE");
     const [editOvertimeMemo, setEditOvertimeMemo] = useState("");
+    const [editManualOvertime, setEditManualOvertime] = useState<number | null>(null);
+    const [editIsOvertimeEdited, setEditIsOvertimeEdited] = useState(false);
     const [editSaving, setEditSaving] = useState(false);
     const [duties, setDuties] = useState<Duty[]>([]);
 
@@ -162,7 +165,9 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                     memo: editMemo,
                     overtimeReason: finalOvertimeReason || null,
                     dutyType: editDutyType,
-                    overtimeMemo: editOvertimeMemo || null
+                    overtimeMemo: editOvertimeMemo || null,
+                    isOvertimeEdited: editIsOvertimeEdited,
+                    manualOvertimeHours: editManualOvertime
                 }),
             });
             if (res.ok) {
@@ -329,6 +334,8 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                                         setEditOvertimeReason(day.attendance?.overtimeReason || "");
                                         setEditDutyType(day.attendance?.dutyType || "NONE");
                                         setEditOvertimeMemo(day.attendance?.overtimeMemo || "");
+                                        setEditManualOvertime(day.attendance?.overtimeHours || null);
+                                        setEditIsOvertimeEdited(day.attendance?.isOvertimeEdited || false);
                                     }}
                                     style={{
                                         cursor: "pointer",
@@ -491,8 +498,39 @@ export default function AttendanceHistory({ user, highlightDate, onClearHighligh
                              </select>
                         </div>
 
+                        {/* 残業時間の手動修正（正規職員のみ） */}
                         {user.employmentType !== "PART_TIME" && (
                             <div style={{ marginBottom: "var(--space-md)", background: "var(--bg-card-hover)", padding: "var(--space-sm)", borderRadius: "var(--radius-md)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-xs)" }}>
+                                    <label style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: "bold" }}>残業時間</label>
+                                    <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editIsOvertimeEdited} 
+                                            onChange={(e) => setEditIsOvertimeEdited(e.target.checked)} 
+                                        />
+                                        手動で入力する
+                                    </label>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", marginBottom: "var(--space-md)" }}>
+                                    <input
+                                        type="number"
+                                        step="0.25"
+                                        min="0"
+                                        className="input"
+                                        style={{ width: "80px" }}
+                                        value={editManualOvertime ?? ""}
+                                        onChange={(e) => setEditManualOvertime(parseFloat(e.target.value) || 0)}
+                                        disabled={!editIsOvertimeEdited}
+                                    />
+                                    <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>時間</span>
+                                    {!editIsOvertimeEdited && editingDay?.attendance?.overtimeHours !== undefined && (
+                                        <span style={{ marginLeft: "auto", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                            (自動計算: {editingDay.attendance.overtimeHours.toFixed(2)}h)
+                                        </span>
+                                    )}
+                                </div>
+
                                 <label style={{ display: "block", fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "var(--space-xs)" }}>残業理由（任意）</label>
                                 <select
                                     className="select"

@@ -80,6 +80,7 @@ model Attendance {
   actualWorkHours  Float    @default(0)
   breakHours       Float    @default(0)
   overtimeHours    Float    @default(0)
+  isOvertimeEdited Boolean  @default(false)
   shortTimeValue   Float    @default(0)
   mealCount        Int      @default(0)
   overtimeReason   String?

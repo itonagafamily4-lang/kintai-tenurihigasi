@@ -314,3 +314,40 @@ export async function getEffectiveSchedule(staffId: string, date: string) {
     title: null,
   };
 }
+
+/**
+ * 備考欄（Memo）から休暇情報をパースして抽出する
+ * ルール:
+ * - 「有休」 または 「全休」: 1日有休
+ * - 「特休」: 1日特休
+ * - 「時間有休 Xh」 (Xは数字、全角半角問わず): X時間の時間有休
+ */
+export function extractLeaveFromMemo(memo: string | null | undefined): { 
+  type: 'FULL_DAY' | 'SPECIAL' | 'HOURLY' | null; 
+  hours?: number; 
+} | null {
+  if (!memo) return null;
+
+  // 時間有休の判定 (例: 時間有休 2h, 時間有休2.5h, 時間有給 2h)
+  // 正規表現で「時間[有休|有給]\s*(\d+(?:\.\d+)?)[hHＨ]」を抽出
+  const hourlyMatch = memo.match(/時間(?:有休|有給)\s*([0-9０-９]+(?:\.[0-9０-９]+)?)\s*[hHｈＨ]/);
+  if (hourlyMatch) {
+    // 全角数字を半角に変換
+    const hoursStr = hourlyMatch[1].replace(/[０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
+    const hours = parseFloat(hoursStr);
+    if (!isNaN(hours) && hours > 0) {
+      return { type: 'HOURLY', hours };
+    }
+  }
+
+  // 全日有休・特休の判定
+  if (memo.includes("有休") || memo.includes("全休")) {
+    return { type: 'FULL_DAY' };
+  }
+  
+  if (memo.includes("特休")) {
+    return { type: 'SPECIAL' };
+  }
+
+  return null;
+}
