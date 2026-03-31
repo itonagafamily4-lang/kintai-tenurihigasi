@@ -323,7 +323,7 @@ export async function getEffectiveSchedule(staffId: string, date: string) {
  * - 「時間有休 Xh」 (Xは数字、全角半角問わず): X時間の時間有休
  */
 export function extractLeaveFromMemo(memo: string | null | undefined): { 
-  type: 'FULL_DAY' | 'SPECIAL' | 'HOURLY' | null; 
+  type: 'FULL_DAY' | 'HALF_DAY' | 'SPECIAL' | 'HOURLY' | null; 
   hours?: number; 
 } | null {
   if (!memo) return null;
@@ -340,9 +340,17 @@ export function extractLeaveFromMemo(memo: string | null | undefined): {
     }
   }
 
-  // 全日有休・特休の判定
+  // 全日有休・半休・特休の判定
   if (memo.includes("有休") || memo.includes("全休")) {
+    // 「有休」が含まれていて、かつ「半」が含まれている場合は半休
+    if (memo.includes("半")) {
+      return { type: 'HALF_DAY' };
+    }
     return { type: 'FULL_DAY' };
+  }
+
+  if (memo.includes("半休")) {
+    return { type: 'HALF_DAY' };
   }
   
   if (memo.includes("特休")) {

@@ -97,6 +97,8 @@ export async function GET() {
                 const extracted = extractLeaveFromMemo(a.memo);
                 if (extracted?.type === 'FULL_DAY') {
                     extraPaidLeave += 1;
+                } else if (extracted?.type === 'HALF_DAY') {
+                    extraPaidLeave += 0.5;
                 } else if (extracted?.type === 'SPECIAL') {
                     extraPublicHolidays += 1;
                 } else if (extracted?.type === 'HOURLY' && extracted.hours) {
